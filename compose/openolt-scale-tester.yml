@@ -1,0 +1,66 @@
+---
+# Copyright 2018 the original author or authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+version: '2'
+services:
+  openolt-scale-tester:
+    image: "${REGISTRY}${REPOSITORY}openolt-scale-tester:${TAG}"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command: [
+      "/app/openolt-scale-tester",
+      "--openolt_agent_ip_address=${OPENOLT_AGENT_IP_ADDRESS}",
+      "--openolt_agent_port=9191",
+      "--openolt_agent_nni_intf_id=0",
+      "--num_of_onu=128",
+      "--subscribers_per_onu=1",
+      "--workflow_name=ATT",
+      "--time_interval_between_subs=0",
+      "--kv_store_host=${DOCKER_HOST_IP}",
+      "--kv_store_port=2379",
+      "--tp_ids=64"
+    ]
+    networks:
+    - default
+    restart: on-failure
+
+  etcd:
+    image: "quay.io/coreos/etcd:v3.4.1"
+    command: [
+      "etcd",
+      "--name=etcd0",
+      "--advertise-client-urls=http://${DOCKER_HOST_IP}:2379,http://${DOCKER_HOST_IP}:4001",
+      "--listen-client-urls=http://0.0.0.0:2379,http://0.0.0.0:4001",
+      "--initial-advertise-peer-urls=http://${DOCKER_HOST_IP}:2380",
+      "--listen-peer-urls=http://0.0.0.0:2380",
+      "--initial-cluster-token=etcd-cluster-1",
+      "--initial-cluster=etcd0=http://${DOCKER_HOST_IP}:2380",
+      "--initial-cluster-state=new"
+    ]
+    ports:
+    - "2379:2379"
+    - 2380
+    - 4001
+    networks:
+    - default
+    restart: unless-stopped
+
+
+networks:
+  default:
+    driver: bridge
