@@ -62,7 +62,7 @@ func (onu *OnuDevice) Start(oltCh chan bool) {
 			PonIntf:        onu.PonIntf,
 			UniPortNo:      MkUniPortNum(onu.PonIntf, onu.OnuID, uint32(subs)),
 			Ctag:           GetCtag(onu.testConfig.WorkflowName, onu.PonIntf),
-			Stag:           GetStag(onu.testConfig.WorkflowName, onu.PonIntf),
+			Stag:           GetStag(onu.testConfig.WorkflowName, onu.PonIntf, onu.OnuID, uint32(subs)),
 			OpenOltClient:  onu.openOltClient,
 			TestConfig:     onu.testConfig,
 			RsrMgr:         onu.rsrMgr,

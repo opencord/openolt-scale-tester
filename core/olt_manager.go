@@ -43,6 +43,7 @@ import (
 const (
 	ReasonOk          = "OK"
 	TechProfileKVPath = "service/voltha/technology_profiles/%s/%d" // service/voltha/technology_profiles/xgspon/<tech_profile_tableID>
+	DTWorkFlow        = "DT"
 )
 
 type OnuDeviceKey struct {
@@ -175,8 +176,10 @@ func (om *OpenOltManager) Start(testConfig *config.OpenOltScaleTesterConfig) err
 	go om.readIndications()
 
 	// Provision OLT NNI Trap flows as needed by the Workflow
-	if err = ProvisionNniTrapFlow(om.openOltClient, om.testConfig, om.rsrMgr); err != nil {
-		log.Error("failed-to-add-nni-trap-flow", log.Fields{"err": err})
+	if om.testConfig.WorkflowName != DTWorkFlow {
+		if err = ProvisionNniTrapFlow(om.openOltClient, om.testConfig, om.rsrMgr); err != nil {
+			log.Error("failed-to-add-nni-trap-flow", log.Fields{"err": err})
+		}
 	}
 
 	// Provision ONUs one by one

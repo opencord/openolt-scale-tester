@@ -18,15 +18,25 @@ package core
 
 import (
 	"fmt"
+
 	"github.com/opencord/voltha-lib-go/v2/pkg/log"
 	"github.com/opencord/voltha-protos/v2/go/openolt"
 )
 
+type DtStagKey struct {
+	ponIntf, onuID, uniID uint32
+}
+
+var currDtStag uint32
+var DtStag map[DtStagKey]uint32
+var DtCtag map[uint32]uint32
 var AttCtag map[uint32]uint32
 
 func init() {
 	_, _ = log.AddPackage(log.JSON, log.DebugLevel, nil)
 	AttCtag = make(map[uint32]uint32)
+	DtCtag = make(map[uint32]uint32)
+	DtStag = make(map[DtStagKey]uint32)
 }
 
 const (
@@ -75,9 +85,34 @@ func GetAttCtag(ponIntf uint32) uint32 {
 	return AttCtag[ponIntf]
 }
 
+func GetDtCtag(ponIntf uint32) uint32 {
+	var currCtag uint32
+	var ok bool
+	if currCtag, ok = DtCtag[ponIntf]; !ok {
+		// Start with ctag 1
+		DtCtag[ponIntf] = 1
+		return DtCtag[ponIntf]
+	}
+	DtCtag[ponIntf] = currCtag + 1
+	return DtCtag[ponIntf]
+}
+
 func GetAttStag(ponIntf uint32) uint32 {
 	// start with stag 2
 	return ponIntf + 2
+}
+
+func GetDtStag(ponIntf uint32, onuID uint32, uniID uint32) uint32 {
+	// Dt workflow requires unique stag for each subscriber
+	key := DtStagKey{ponIntf: ponIntf, onuID: onuID, uniID: uniID}
+
+	if value, ok := DtStag[key]; ok {
+		return value
+	} else {
+		DtStag[key] = currDtStag + 1
+		currDtStag = DtStag[key]
+	}
+	return DtStag[key]
 }
 
 // TODO: More workflow support to be added here
@@ -85,16 +120,20 @@ func GetCtag(workFlowName string, ponIntf uint32) uint32 {
 	switch workFlowName {
 	case "ATT":
 		return GetAttCtag(ponIntf)
+	case "DT":
+		return GetDtCtag(ponIntf)
 	default:
 		log.Errorw("unknown-workflowname", log.Fields{"workflow": workFlowName})
 	}
 	return 0
 }
 
-func GetStag(workFlowName string, ponIntf uint32) uint32 {
+func GetStag(workFlowName string, ponIntf uint32, onuID uint32, uniID uint32) uint32 {
 	switch workFlowName {
 	case "ATT":
 		return GetAttStag(ponIntf)
+	case "DT":
+		return GetDtStag(ponIntf, onuID, uniID)
 	default:
 		log.Errorw("unknown-workflowname", log.Fields{"workflow": workFlowName})
 	}

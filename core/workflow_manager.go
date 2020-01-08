@@ -79,6 +79,9 @@ func getWorkFlow(subs *Subscriber) WorkFlow {
 	case "ATT":
 		log.Info("chosen-att-workflow")
 		return AttWorkFlow{}
+	case "DT":
+		log.Info("chosen-dt-workflow")
+		return DtWorkFlow{}
 	// TODO: Add new workflow here
 	default:
 		log.Errorw("operator-workflow-not-supported-yet", log.Fields{"workflowName": subs.TestConfig.WorkflowName})
