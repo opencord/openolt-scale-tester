@@ -30,7 +30,6 @@ import (
 const (
 	//Constants utilised while forming HSIA Flow
 	HsiaFlow                 = "HSIA_FLOW"
-	DownStreamHsiaActionOVid = 4108 //Used in Downstream HSIA
 
 	//Constants utilised while forming DHCP Flow
 	DhcpFlow    = "DHCP_FLOW"
@@ -137,7 +136,7 @@ func FormatClassfierAction(flowType string, direction string, subs *Subscriber) 
 			flowClassifier.PktTagType = DoubleTag
 			actionCmd.RemoveOuterTag = true
 			actionInfo.Cmd = &actionCmd
-			actionInfo.OVid = DownStreamHsiaActionOVid
+			actionInfo.OVid = subs.Stag
 		default:
 			log.Errorw("Unsupported flow type", log.Fields{"flowtype": flowType,
 				"direction": direction})
