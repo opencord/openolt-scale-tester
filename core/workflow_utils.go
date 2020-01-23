@@ -28,15 +28,22 @@ import (
 )
 
 const (
-	//Constants utilised while forming HSIA Flow
-	HsiaFlow                 = "HSIA_FLOW"
-
-	//Constants utilised while forming DHCP Flow
-	DhcpFlow    = "DHCP_FLOW"
-	IPv4EthType = 0x800 //2048
 	DhcpIPProto = 17
-	DhcpSrcPort = 68
-	DhcpDstPort = 67
+
+	//Constants utilised while forming HSIA Flow
+	HsiaFlow = "HSIA_FLOW"
+
+	//Constants utilised while forming DHCP IPV4 Flow
+	DhcpFlowIPV4    = "DHCP_FLOW_IPV4"
+	IPv4EthType     = 0x800 //2048
+	DhcpSrcPortIPV4 = 68
+	DhcpDstPortIPV4 = 67
+
+	//Constants utilised while forming DHCP IPV6 Flow
+	DhcpFlowIPV6    = "DHCP_FLOW_IPV6"
+	IPv6EthType     = 0x86dd //34525
+	DhcpSrcPortIPV6 = 547
+	DhcpDstPortIPV6 = 546
 
 	//Constants utilised while forming EAPOL Flow
 	EapolFlow  = "EAPOL_FLOW"
@@ -102,11 +109,19 @@ func FormatClassfierAction(flowType string, direction string, subs *Subscriber) 
 			flowClassifier.PktTagType = SingleTag
 			actionCmd.TrapToHost = true
 			actionInfo.Cmd = &actionCmd
-		case DhcpFlow:
+		case DhcpFlowIPV4:
 			flowClassifier.EthType = IPv4EthType
 			flowClassifier.IpProto = DhcpIPProto
-			flowClassifier.SrcPort = DhcpSrcPort
-			flowClassifier.DstPort = DhcpDstPort
+			flowClassifier.SrcPort = DhcpSrcPortIPV4
+			flowClassifier.DstPort = DhcpDstPortIPV4
+			flowClassifier.PktTagType = SingleTag
+			actionCmd.TrapToHost = true
+			actionInfo.Cmd = &actionCmd
+		case DhcpFlowIPV6:
+			flowClassifier.EthType = IPv6EthType
+			flowClassifier.IpProto = DhcpIPProto
+			flowClassifier.SrcPort = DhcpSrcPortIPV6
+			flowClassifier.DstPort = DhcpDstPortIPV6
 			flowClassifier.PktTagType = SingleTag
 			actionCmd.TrapToHost = true
 			actionInfo.Cmd = &actionCmd
@@ -126,8 +141,12 @@ func FormatClassfierAction(flowType string, direction string, subs *Subscriber) 
 			log.Errorw("Downstream EAP flows are not required instead controller "+
 				"packet outs EAP response directly to onu in downstream", log.Fields{"flowtype": flowType,
 				"direction": direction})
-		case DhcpFlow:
-			log.Errorw("Downstream DHCP flows are not required instead we have "+
+		case DhcpFlowIPV4:
+			log.Errorw("Downstream DHCPIPV4 flows are not required instead we have "+
+				"NNI trap flows already installed", log.Fields{"flowtype": flowType,
+				"direction": direction})
+		case DhcpFlowIPV6:
+			log.Errorw("Downstream DHCPIPV6 flows are not required instead we have "+
 				"NNI trap flows already installed", log.Fields{"flowtype": flowType,
 				"direction": direction})
 		case HsiaFlow:

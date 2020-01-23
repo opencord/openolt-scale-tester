@@ -37,8 +37,7 @@ func init() {
 type AttWorkFlow struct {
 }
 
-func ProvisionAttNniTrapFlow(oo oop.OpenoltClient, config *config.OpenOltScaleTesterConfig,
-	rsrMgr *OpenOltResourceMgr) error {
+func AddDhcpIPV4Flow(oo oop.OpenoltClient, config *config.OpenOltScaleTesterConfig, rsrMgr *OpenOltResourceMgr) error {
 	var flowID []uint32
 	var err error
 
@@ -47,6 +46,7 @@ func ProvisionAttNniTrapFlow(oo oop.OpenoltClient, config *config.OpenOltScaleTe
 		return err
 	}
 
+	// DHCP IPV4
 	flowClassifier := &oop.Classifier{EthType: 2048, IpProto: 17, SrcPort: 67, DstPort: 68, PktTagType: "double_tag"}
 	actionCmd := &oop.ActionCmd{TrapToHost: true}
 	actionInfo := &oop.Action{Cmd: actionCmd}
@@ -54,7 +54,7 @@ func ProvisionAttNniTrapFlow(oo oop.OpenoltClient, config *config.OpenOltScaleTe
 	flow := oop.Flow{AccessIntfId: -1, OnuId: -1, UniId: -1, FlowId: flowID[0],
 		FlowType: "downstream", AllocId: -1, GemportId: -1,
 		Classifier: flowClassifier, Action: actionInfo,
-		Priority: 1000, PortNo: 65536}
+		Priority: 1000, PortNo: uint32(config.NniIntfID)}
 
 	_, err = oo.FlowAdd(context.Background(), &flow)
 
@@ -65,12 +65,96 @@ func ProvisionAttNniTrapFlow(oo oop.OpenoltClient, config *config.OpenOltScaleTe
 	}
 
 	if err != nil {
-		log.Errorw("Failed to Add flow to device", log.Fields{"err": err, "deviceFlow": flow})
+		log.Errorw("Failed to Add DHCP IPv4 to device", log.Fields{"err": err, "deviceFlow": flow})
 		rsrMgr.ResourceMgrs[uint32(config.NniIntfID)].FreeResourceID(uint32(config.NniIntfID),
 			ponresourcemanager.FLOW_ID, flowID)
 		return err
 	}
-	log.Debugw("Flow added to device successfully ", log.Fields{"flow": flow})
+	log.Debugw("DHCP IPV4 added to device successfully ", log.Fields{"flow": flow})
+
+	return nil
+}
+
+func AddDhcpIPV6Flow(oo oop.OpenoltClient, config *config.OpenOltScaleTesterConfig, rsrMgr *OpenOltResourceMgr) error {
+	var flowID []uint32
+	var err error
+
+	if flowID, err = rsrMgr.ResourceMgrs[uint32(config.NniIntfID)].GetResourceID(uint32(config.NniIntfID),
+		ponresourcemanager.FLOW_ID, 1); err != nil {
+		return err
+	}
+
+	// DHCP IPV6
+	flowClassifier := &oop.Classifier{EthType: 34525, IpProto: 17, SrcPort: 546, DstPort: 547, PktTagType: "double_tag"}
+	actionCmd := &oop.ActionCmd{TrapToHost: true}
+	actionInfo := &oop.Action{Cmd: actionCmd}
+
+	flow := oop.Flow{AccessIntfId: -1, OnuId: -1, UniId: -1, FlowId: flowID[0],
+		FlowType: "downstream", AllocId: -1, GemportId: -1,
+		Classifier: flowClassifier, Action: actionInfo,
+		Priority: 1000, PortNo: uint32(config.NniIntfID)}
+
+	_, err = oo.FlowAdd(context.Background(), &flow)
+
+	st, _ := status.FromError(err)
+	if st.Code() == codes.AlreadyExists {
+		log.Debugw("Flow already exists", log.Fields{"err": err, "deviceFlow": flow})
+		return nil
+	}
+
+	if err != nil {
+		log.Errorw("Failed to Add DHCP IPV6 to device", log.Fields{"err": err, "deviceFlow": flow})
+		rsrMgr.ResourceMgrs[uint32(config.NniIntfID)].FreeResourceID(uint32(config.NniIntfID),
+			ponresourcemanager.FLOW_ID, flowID)
+		return err
+	}
+	log.Debugw("DHCP IPV6 added to device successfully ", log.Fields{"flow": flow})
+
+	return nil
+}
+
+func AddLldpFlow(oo oop.OpenoltClient, config *config.OpenOltScaleTesterConfig, rsrMgr *OpenOltResourceMgr) error {
+	var flowID []uint32
+	var err error
+
+	if flowID, err = rsrMgr.ResourceMgrs[uint32(config.NniIntfID)].GetResourceID(uint32(config.NniIntfID),
+		ponresourcemanager.FLOW_ID, 1); err != nil {
+		return err
+	}
+
+	// DHCP IPV4
+	flowClassifier := &oop.Classifier{EthType: 35020, PktTagType: "untagged"}
+	actionCmd := &oop.ActionCmd{TrapToHost: true}
+	actionInfo := &oop.Action{Cmd: actionCmd}
+
+	flow := oop.Flow{AccessIntfId: -1, OnuId: -1, UniId: -1, FlowId: flowID[0],
+		FlowType: "downstream", AllocId: -1, GemportId: -1,
+		Classifier: flowClassifier, Action: actionInfo,
+		Priority: 1000, PortNo: uint32(config.NniIntfID)}
+
+	_, err = oo.FlowAdd(context.Background(), &flow)
+
+	st, _ := status.FromError(err)
+	if st.Code() == codes.AlreadyExists {
+		log.Debugw("Flow already exists", log.Fields{"err": err, "deviceFlow": flow})
+		return nil
+	}
+
+	if err != nil {
+		log.Errorw("Failed to Add LLDP flow to device", log.Fields{"err": err, "deviceFlow": flow})
+		rsrMgr.ResourceMgrs[uint32(config.NniIntfID)].FreeResourceID(uint32(config.NniIntfID),
+			ponresourcemanager.FLOW_ID, flowID)
+		return err
+	}
+	log.Debugw("LLDP flow added to device successfully ", log.Fields{"flow": flow})
+
+	return nil
+}
+
+func ProvisionAttNniTrapFlow(oo oop.OpenoltClient, config *config.OpenOltScaleTesterConfig, rsrMgr *OpenOltResourceMgr) error {
+	_ = AddDhcpIPV4Flow(oo, config, rsrMgr)
+	_ = AddDhcpIPV6Flow(oo, config, rsrMgr)
+	_ = AddLldpFlow(oo, config, rsrMgr)
 
 	return nil
 }
@@ -179,7 +263,7 @@ func (att AttWorkFlow) ProvisionEapFlow(subs *Subscriber) error {
 	return nil
 }
 
-func (att AttWorkFlow) ProvisionDhcpFlow(subs *Subscriber) error {
+func (att AttWorkFlow) ProvisionDhcpIPV4Flow(subs *Subscriber) error {
 	var err error
 	var flowID []uint32
 	var gemPortIDs []uint32
@@ -194,7 +278,32 @@ func (att AttWorkFlow) ProvisionDhcpFlow(subs *Subscriber) error {
 			ponresourcemanager.FLOW_ID, 1); err != nil {
 			return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
 		} else {
-			if err := AddFlow(subs, DhcpFlow, Upstream, flowID[0], allocID, gemID); err != nil {
+			if err := AddFlow(subs, DhcpFlowIPV4, Upstream, flowID[0], allocID, gemID); err != nil {
+				subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(uint32(subs.PonIntf),
+					ponresourcemanager.FLOW_ID, flowID)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (att AttWorkFlow) ProvisionDhcpIPV6Flow(subs *Subscriber) error {
+	var err error
+	var flowID []uint32
+	var gemPortIDs []uint32
+
+	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocID
+	for _, gem := range subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList {
+		gemPortIDs = append(gemPortIDs, gem.GemportID)
+	}
+
+	for _, gemID := range gemPortIDs {
+		if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(uint32(subs.PonIntf),
+			ponresourcemanager.FLOW_ID, 1); err != nil {
+			return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
+		} else {
+			if err := AddFlow(subs, DhcpFlowIPV6, Upstream, flowID[0], allocID, gemID); err != nil {
 				subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(uint32(subs.PonIntf),
 					ponresourcemanager.FLOW_ID, flowID)
 				return err
@@ -224,13 +333,24 @@ func (att AttWorkFlow) ProvisionHsiaFlow(subs *Subscriber) error {
 			ponresourcemanager.FLOW_ID, 1); err != nil {
 			return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
 		} else {
-			if err := AddFlow(subs, HsiaFlow, Upstream, flowID[0], allocID, gemID); err != nil {
+			var errUs, errDs error
+			if errUs = AddFlow(subs, HsiaFlow, Upstream, flowID[0], allocID, gemID); errUs != nil {
+				log.Errorw("failed to install US HSIA flow",
+					log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
+			}
+			if errDs = AddFlow(subs, HsiaFlow, Downstream, flowID[0], allocID, gemID); errDs != nil {
+				log.Errorw("failed to install US HSIA flow",
+					log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
+			}
+			if errUs != nil && errDs != nil {
 				subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(uint32(subs.PonIntf),
 					ponresourcemanager.FLOW_ID, flowID)
-				return err
 			}
-			if err := AddFlow(subs, HsiaFlow, Downstream, flowID[0], allocID, gemID); err != nil {
-				return err
+			if errUs != nil || errDs != nil {
+				if errUs != nil {
+					return errUs
+				}
+				return errDs
 			}
 		}
 	}

@@ -31,7 +31,8 @@ type WorkFlow interface {
 	ProvisionScheds(subs *Subscriber) error
 	ProvisionQueues(subs *Subscriber) error
 	ProvisionEapFlow(subs *Subscriber) error
-	ProvisionDhcpFlow(subs *Subscriber) error
+	ProvisionDhcpIPV4Flow(subs *Subscriber) error
+	ProvisionDhcpIPV6Flow(subs *Subscriber) error
 	ProvisionIgmpFlow(subs *Subscriber) error
 	ProvisionHsiaFlow(subs *Subscriber) error
 	// TODO: Add new items here as needed.
@@ -56,7 +57,12 @@ func DeployWorkflow(subs *Subscriber) {
 		return
 	}
 
-	if err := wf.ProvisionDhcpFlow(subs); err != nil {
+	if err := wf.ProvisionDhcpIPV4Flow(subs); err != nil {
+		subs.Reason = err.Error()
+		return
+	}
+
+	if err := wf.ProvisionDhcpIPV6Flow(subs); err != nil {
 		subs.Reason = err.Error()
 		return
 	}

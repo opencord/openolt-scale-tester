@@ -117,8 +117,13 @@ func (dt DtWorkFlow) ProvisionEapFlow(subs *Subscriber) error {
 	return nil
 }
 
-func (dt DtWorkFlow) ProvisionDhcpFlow(subs *Subscriber) error {
-	log.Info("dt-workflow-does-not-require-dhcp-support--nothing-to-do")
+func (dt DtWorkFlow) ProvisionDhcpIPV4Flow(subs *Subscriber) error {
+	log.Info("dt-workflow-does-not-require-dhcp-ipv4-support--nothing-to-do")
+	return nil
+}
+
+func (dt DtWorkFlow) ProvisionDhcpIPV6Flow(subs *Subscriber) error {
+	log.Info("dt-workflow-does-not-require-dhcp-ipv6-support--nothing-to-do")
 	return nil
 }
 
