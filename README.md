@@ -40,5 +40,12 @@ workflow_name [default: ATT]
 time_interval_between_subs [default: 5]
 kv_store_host[default: 192.168.1.11]
 kv_store_port [default: 2379]
-tp_ids [ default: 64] 
+tp_ids [ default: 64]
 ```
+
+# Known Limitations and Issues
+
+The following are known issues and limitations with the openolt-scale-tester tool.
+
+* This tool configures fake ONUs which does not really exist on the PON tree. Hence all the BAL resources (if you are using a Broadcom BAL integrated agent) it continues to remain in CONFIGURED state and never move to ACTIVE. The goal is to test the scale-limits on the number of resources we can configure and see if it meets the operator requirements.
+* There are timeouts seen in the openolt-agent logs during ITUPON-Alloc object creation (if you are using Broadcom BAL3.x integrated openolt-agent). Right after ITUPON-Alloc object creation, the BAL tries to sync over PLOAM channel with ONU. But, since the ONUs we configure are fake, the PLOAM channel does not exist and ITUPON-Alloc object cannot move to ACTIVE state and times-out. Since the ITUPON-Alloc object is CONFIGURED and that serves our purpose, you may ignore this error.
