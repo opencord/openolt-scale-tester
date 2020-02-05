@@ -104,6 +104,11 @@ func ProvisionNniTrapFlow(oo oop.OpenoltClient, config *config.OpenOltScaleTeste
 			log.Error("error-installing-flow", log.Fields{"err": err})
 			return err
 		}
+	case "DT":
+		if err := ProvisionDtNniTrapFlow(oo, config, rsrMgr); err != nil {
+			log.Error("error-installing-flow", log.Fields{"err": err})
+			return err
+		}
 	// TODO: Add new items here
 	default:
 		log.Errorw("operator-workflow-not-supported-yet", log.Fields{"workflowName": config.WorkflowName})

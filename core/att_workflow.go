@@ -113,44 +113,6 @@ func AddDhcpIPV6Flow(oo oop.OpenoltClient, config *config.OpenOltScaleTesterConf
 	return nil
 }
 
-func AddLldpFlow(oo oop.OpenoltClient, config *config.OpenOltScaleTesterConfig, rsrMgr *OpenOltResourceMgr) error {
-	var flowID []uint32
-	var err error
-
-	if flowID, err = rsrMgr.ResourceMgrs[uint32(config.NniIntfID)].GetResourceID(uint32(config.NniIntfID),
-		ponresourcemanager.FLOW_ID, 1); err != nil {
-		return err
-	}
-
-	// DHCP IPV4
-	flowClassifier := &oop.Classifier{EthType: 35020, PktTagType: "untagged"}
-	actionCmd := &oop.ActionCmd{TrapToHost: true}
-	actionInfo := &oop.Action{Cmd: actionCmd}
-
-	flow := oop.Flow{AccessIntfId: -1, OnuId: -1, UniId: -1, FlowId: flowID[0],
-		FlowType: "downstream", AllocId: -1, GemportId: -1,
-		Classifier: flowClassifier, Action: actionInfo,
-		Priority: 1000, PortNo: uint32(config.NniIntfID)}
-
-	_, err = oo.FlowAdd(context.Background(), &flow)
-
-	st, _ := status.FromError(err)
-	if st.Code() == codes.AlreadyExists {
-		log.Debugw("Flow already exists", log.Fields{"err": err, "deviceFlow": flow})
-		return nil
-	}
-
-	if err != nil {
-		log.Errorw("Failed to Add LLDP flow to device", log.Fields{"err": err, "deviceFlow": flow})
-		rsrMgr.ResourceMgrs[uint32(config.NniIntfID)].FreeResourceID(uint32(config.NniIntfID),
-			ponresourcemanager.FLOW_ID, flowID)
-		return err
-	}
-	log.Debugw("LLDP flow added to device successfully ", log.Fields{"flow": flow})
-
-	return nil
-}
-
 func ProvisionAttNniTrapFlow(oo oop.OpenoltClient, config *config.OpenOltScaleTesterConfig, rsrMgr *OpenOltResourceMgr) error {
 	_ = AddDhcpIPV4Flow(oo, config, rsrMgr)
 	_ = AddDhcpIPV6Flow(oo, config, rsrMgr)

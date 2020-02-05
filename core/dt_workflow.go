@@ -19,8 +19,10 @@ package core
 import (
 	"errors"
 
+	"github.com/opencord/openolt-scale-tester/config"
 	"github.com/opencord/voltha-lib-go/v2/pkg/log"
 	"github.com/opencord/voltha-lib-go/v2/pkg/ponresourcemanager"
+	oop "github.com/opencord/voltha-protos/v2/go/openolt"
 	tp_pb "github.com/opencord/voltha-protos/v2/go/tech_profile"
 	"golang.org/x/net/context"
 )
@@ -31,6 +33,12 @@ func init() {
 
 // A dummy struct to comply with the WorkFlow interface.
 type DtWorkFlow struct {
+}
+
+func ProvisionDtNniTrapFlow(oo oop.OpenoltClient, config *config.OpenOltScaleTesterConfig, rsrMgr *OpenOltResourceMgr) error {
+	_ = AddLldpFlow(oo, config, rsrMgr)
+
+	return nil
 }
 
 func (dt DtWorkFlow) ProvisionScheds(subs *Subscriber) error {
