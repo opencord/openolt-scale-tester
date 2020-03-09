@@ -167,12 +167,14 @@ func FormatClassfierAction(flowType string, direction string, subs *Subscriber) 
 }
 
 func AddFlow(subs *Subscriber, flowType string, direction string, flowID uint32,
-	allocID uint32, gemID uint32) error {
+	allocID uint32, gemID uint32, pcp uint32) error {
 	log.Infow("add-flow", log.Fields{"WorkFlow": subs.TestConfig.WorkflowName, "FlowType": flowType,
 		"direction": direction, "flowID": flowID})
 	var err error
 
 	flowClassifier, actionInfo := FormatClassfierAction(flowType, direction, subs)
+	// Update the o_pbit for which this flow has to be classified
+	flowClassifier.OPbits = pcp
 	flow := oop.Flow{AccessIntfId: int32(subs.PonIntf), OnuId: int32(subs.OnuID),
 		UniId: int32(subs.UniID), FlowId: flowID,
 		FlowType: direction, AllocId: int32(allocID), GemportId: int32(gemID),

@@ -18,6 +18,7 @@ package core
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/opencord/openolt-scale-tester/config"
 	"github.com/opencord/voltha-lib-go/v2/pkg/log"
@@ -150,18 +151,24 @@ func (dt DtWorkFlow) ProvisionHsiaFlow(subs *Subscriber) error {
 		gemPortIDs = append(gemPortIDs, gem.GemportID)
 	}
 
-	for _, gemID := range gemPortIDs {
-		if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(uint32(subs.PonIntf),
-			ponresourcemanager.FLOW_ID, 1); err != nil {
-			return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
-		} else {
-			if err := AddFlow(subs, HsiaFlow, Upstream, flowID[0], allocID, gemID); err != nil {
-				subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(uint32(subs.PonIntf),
-					ponresourcemanager.FLOW_ID, flowID)
-				return err
-			}
-			if err := AddFlow(subs, HsiaFlow, Downstream, flowID[0], allocID, gemID); err != nil {
-				return err
+	for idx, gemID := range gemPortIDs {
+		pBitMap := subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList[idx].PbitMap
+		for pos, pbitSet := range strings.TrimPrefix(pBitMap, "0b") {
+			if pbitSet == '1' {
+				pcp := uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
+				if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(uint32(subs.PonIntf),
+					ponresourcemanager.FLOW_ID, 1); err != nil {
+					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
+				} else {
+					if err := AddFlow(subs, HsiaFlow, Upstream, flowID[0], allocID, gemID, pcp); err != nil {
+						subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(uint32(subs.PonIntf),
+							ponresourcemanager.FLOW_ID, flowID)
+						return err
+					}
+					if err := AddFlow(subs, HsiaFlow, Downstream, flowID[0], allocID, gemID, pcp); err != nil {
+						return err
+					}
+				}
 			}
 		}
 	}

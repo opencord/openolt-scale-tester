@@ -18,6 +18,7 @@ package core
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/opencord/openolt-scale-tester/config"
 	"github.com/opencord/voltha-lib-go/v2/pkg/log"
@@ -210,15 +211,21 @@ func (att AttWorkFlow) ProvisionEapFlow(subs *Subscriber) error {
 		gemPortIDs = append(gemPortIDs, gem.GemportID)
 	}
 
-	for _, gemID := range gemPortIDs {
-		if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(uint32(subs.PonIntf),
-			ponresourcemanager.FLOW_ID, 1); err != nil {
-			return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
-		} else {
-			if err := AddFlow(subs, EapolFlow, Upstream, flowID[0], allocID, gemID); err != nil {
-				subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(uint32(subs.PonIntf),
-					ponresourcemanager.FLOW_ID, flowID)
-				return err
+	for idx, gemID := range gemPortIDs {
+		pBitMap := subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList[idx].PbitMap
+		for pos, pbitSet := range strings.TrimPrefix(pBitMap, "0b") {
+			if pbitSet == '1' {
+				pcp := uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
+				if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(uint32(subs.PonIntf),
+					ponresourcemanager.FLOW_ID, 1); err != nil {
+					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
+				} else {
+					if err := AddFlow(subs, EapolFlow, Upstream, flowID[0], allocID, gemID, pcp); err != nil {
+						subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(uint32(subs.PonIntf),
+							ponresourcemanager.FLOW_ID, flowID)
+						return err
+					}
+				}
 			}
 		}
 	}
@@ -235,15 +242,21 @@ func (att AttWorkFlow) ProvisionDhcpIPV4Flow(subs *Subscriber) error {
 		gemPortIDs = append(gemPortIDs, gem.GemportID)
 	}
 
-	for _, gemID := range gemPortIDs {
-		if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(uint32(subs.PonIntf),
-			ponresourcemanager.FLOW_ID, 1); err != nil {
-			return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
-		} else {
-			if err := AddFlow(subs, DhcpFlowIPV4, Upstream, flowID[0], allocID, gemID); err != nil {
-				subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(uint32(subs.PonIntf),
-					ponresourcemanager.FLOW_ID, flowID)
-				return err
+	for idx, gemID := range gemPortIDs {
+		pBitMap := subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList[idx].PbitMap
+		for pos, pbitSet := range strings.TrimPrefix(pBitMap, "0b") {
+			if pbitSet == '1' {
+				pcp := uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
+				if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(uint32(subs.PonIntf),
+					ponresourcemanager.FLOW_ID, 1); err != nil {
+					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
+				} else {
+					if err := AddFlow(subs, DhcpFlowIPV4, Upstream, flowID[0], allocID, gemID, pcp); err != nil {
+						subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(uint32(subs.PonIntf),
+							ponresourcemanager.FLOW_ID, flowID)
+						return err
+					}
+				}
 			}
 		}
 	}
@@ -260,15 +273,21 @@ func (att AttWorkFlow) ProvisionDhcpIPV6Flow(subs *Subscriber) error {
 		gemPortIDs = append(gemPortIDs, gem.GemportID)
 	}
 
-	for _, gemID := range gemPortIDs {
-		if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(uint32(subs.PonIntf),
-			ponresourcemanager.FLOW_ID, 1); err != nil {
-			return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
-		} else {
-			if err := AddFlow(subs, DhcpFlowIPV6, Upstream, flowID[0], allocID, gemID); err != nil {
-				subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(uint32(subs.PonIntf),
-					ponresourcemanager.FLOW_ID, flowID)
-				return err
+	for idx, gemID := range gemPortIDs {
+		pBitMap := subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList[idx].PbitMap
+		for pos, pbitSet := range strings.TrimPrefix(pBitMap, "0b") {
+			if pbitSet == '1' {
+				pcp := uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
+				if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(uint32(subs.PonIntf),
+					ponresourcemanager.FLOW_ID, 1); err != nil {
+					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
+				} else {
+					if err := AddFlow(subs, DhcpFlowIPV6, Upstream, flowID[0], allocID, gemID, pcp); err != nil {
+						subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(uint32(subs.PonIntf),
+							ponresourcemanager.FLOW_ID, flowID)
+						return err
+					}
+				}
 			}
 		}
 	}
@@ -290,29 +309,35 @@ func (att AttWorkFlow) ProvisionHsiaFlow(subs *Subscriber) error {
 		gemPortIDs = append(gemPortIDs, gem.GemportID)
 	}
 
-	for _, gemID := range gemPortIDs {
-		if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(uint32(subs.PonIntf),
-			ponresourcemanager.FLOW_ID, 1); err != nil {
-			return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
-		} else {
-			var errUs, errDs error
-			if errUs = AddFlow(subs, HsiaFlow, Upstream, flowID[0], allocID, gemID); errUs != nil {
-				log.Errorw("failed to install US HSIA flow",
-					log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
-			}
-			if errDs = AddFlow(subs, HsiaFlow, Downstream, flowID[0], allocID, gemID); errDs != nil {
-				log.Errorw("failed to install US HSIA flow",
-					log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
-			}
-			if errUs != nil && errDs != nil {
-				subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(uint32(subs.PonIntf),
-					ponresourcemanager.FLOW_ID, flowID)
-			}
-			if errUs != nil || errDs != nil {
-				if errUs != nil {
-					return errUs
+	for idx, gemID := range gemPortIDs {
+		pBitMap := subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList[idx].PbitMap
+		for pos, pbitSet := range strings.TrimPrefix(pBitMap, "0b") {
+			if pbitSet == '1' {
+				pcp := uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
+				if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(uint32(subs.PonIntf),
+					ponresourcemanager.FLOW_ID, 1); err != nil {
+					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
+				} else {
+					var errUs, errDs error
+					if errUs = AddFlow(subs, HsiaFlow, Upstream, flowID[0], allocID, gemID, pcp); errUs != nil {
+						log.Errorw("failed to install US HSIA flow",
+							log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
+					}
+					if errDs = AddFlow(subs, HsiaFlow, Downstream, flowID[0], allocID, gemID, pcp); errDs != nil {
+						log.Errorw("failed to install US HSIA flow",
+							log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
+					}
+					if errUs != nil && errDs != nil {
+						subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(uint32(subs.PonIntf),
+							ponresourcemanager.FLOW_ID, flowID)
+					}
+					if errUs != nil || errDs != nil {
+						if errUs != nil {
+							return errUs
+						}
+						return errDs
+					}
 				}
-				return errDs
 			}
 		}
 	}
