@@ -18,9 +18,10 @@ package core
 
 import (
 	"errors"
+
 	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v2/pkg/log"
-	oop "github.com/opencord/voltha-protos/v2/go/openolt"
+	"github.com/opencord/voltha-lib-go/v3/pkg/log"
+	oop "github.com/opencord/voltha-protos/v3/go/openolt"
 )
 
 func init() {
@@ -35,46 +36,72 @@ type WorkFlow interface {
 	ProvisionDhcpIPV6Flow(subs *Subscriber) error
 	ProvisionIgmpFlow(subs *Subscriber) error
 	ProvisionHsiaFlow(subs *Subscriber) error
+	ProvisionVoipFlow(subs *Subscriber) error
+	ProvisionVodFlow(subs *Subscriber) error
+	ProvisionMgmtFlow(subs *Subscriber) error
+	ProvisionMulticastFlow(subs *Subscriber) error
 	// TODO: Add new items here as needed.
 }
 
-func DeployWorkflow(subs *Subscriber) {
+func DeployWorkflow(subs *Subscriber, isGroup bool) {
 	var wf = getWorkFlow(subs)
 
-	// TODO: Catch and log errors for below items if needed.
-	if err := wf.ProvisionScheds(subs); err != nil {
-		subs.Reason = err.Error()
-		return
-	}
+	if isGroup {
+		if err := wf.ProvisionMulticastFlow(subs); err != nil {
+			subs.Reason = err.Error()
+			return
+		}
+	} else {
+		// TODO: Catch and log errors for below items if needed.
+		if err := wf.ProvisionScheds(subs); err != nil {
+			subs.Reason = err.Error()
+			return
+		}
 
-	if err := wf.ProvisionQueues(subs); err != nil {
-		subs.Reason = err.Error()
-		return
-	}
+		if err := wf.ProvisionQueues(subs); err != nil {
+			subs.Reason = err.Error()
+			return
+		}
 
-	if err := wf.ProvisionEapFlow(subs); err != nil {
-		subs.Reason = err.Error()
-		return
-	}
+		if err := wf.ProvisionEapFlow(subs); err != nil {
+			subs.Reason = err.Error()
+			return
+		}
 
-	if err := wf.ProvisionDhcpIPV4Flow(subs); err != nil {
-		subs.Reason = err.Error()
-		return
-	}
+		if err := wf.ProvisionDhcpIPV4Flow(subs); err != nil {
+			subs.Reason = err.Error()
+			return
+		}
 
-	if err := wf.ProvisionDhcpIPV6Flow(subs); err != nil {
-		subs.Reason = err.Error()
-		return
-	}
+		if err := wf.ProvisionDhcpIPV6Flow(subs); err != nil {
+			subs.Reason = err.Error()
+			return
+		}
 
-	if err := wf.ProvisionIgmpFlow(subs); err != nil {
-		subs.Reason = err.Error()
-		return
-	}
+		if err := wf.ProvisionIgmpFlow(subs); err != nil {
+			subs.Reason = err.Error()
+			return
+		}
 
-	if err := wf.ProvisionHsiaFlow(subs); err != nil {
-		subs.Reason = err.Error()
-		return
+		if err := wf.ProvisionHsiaFlow(subs); err != nil {
+			subs.Reason = err.Error()
+			return
+		}
+
+		if err := wf.ProvisionVoipFlow(subs); err != nil {
+			subs.Reason = err.Error()
+			return
+		}
+
+		if err := wf.ProvisionVodFlow(subs); err != nil {
+			subs.Reason = err.Error()
+			return
+		}
+
+		if err := wf.ProvisionMgmtFlow(subs); err != nil {
+			subs.Reason = err.Error()
+			return
+		}
 	}
 
 	subs.Reason = ReasonCodeToReasonString(SUBSCRIBER_PROVISION_SUCCESS)
@@ -88,6 +115,9 @@ func getWorkFlow(subs *Subscriber) WorkFlow {
 	case "DT":
 		log.Info("chosen-dt-workflow")
 		return DtWorkFlow{}
+	case "TT":
+		log.Info("chosen-tt-workflow")
+		return TtWorkFlow{}
 	// TODO: Add new workflow here
 	default:
 		log.Errorw("operator-workflow-not-supported-yet", log.Fields{"workflowName": subs.TestConfig.WorkflowName})
@@ -106,6 +136,11 @@ func ProvisionNniTrapFlow(oo oop.OpenoltClient, config *config.OpenOltScaleTeste
 		}
 	case "DT":
 		if err := ProvisionDtNniTrapFlow(oo, config, rsrMgr); err != nil {
+			log.Error("error-installing-flow", log.Fields{"err": err})
+			return err
+		}
+	case "TT":
+		if err := ProvisionTtNniTrapFlow(oo, config, rsrMgr); err != nil {
 			log.Error("error-installing-flow", log.Fields{"err": err})
 			return err
 		}

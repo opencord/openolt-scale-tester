@@ -18,12 +18,13 @@ package core
 
 import (
 	"errors"
+	"math/rand"
 
 	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v2/pkg/log"
-	"github.com/opencord/voltha-lib-go/v2/pkg/ponresourcemanager"
-	oop "github.com/opencord/voltha-protos/v2/go/openolt"
-	tp_pb "github.com/opencord/voltha-protos/v2/go/tech_profile"
+	"github.com/opencord/voltha-lib-go/v3/pkg/log"
+	"github.com/opencord/voltha-lib-go/v3/pkg/ponresourcemanager"
+	oop "github.com/opencord/voltha-protos/v3/go/openolt"
+	tp_pb "github.com/opencord/voltha-protos/v3/go/tech_profile"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -60,18 +61,55 @@ const (
 	Untagged      = "untagged"
 	SingleTag     = "single_tag"
 	DoubleTag     = "double_tag"
+
+	VoipFlow = "VOIP_FLOW"
+
+	VodFlow = "VOD_FLOW"
+
+	MgmtFlow = "MGMT_FLOW"
+
+	IgmpProto = 2
+	IgmpFlow  = "IGMP_FLOW"
 )
+
+const (
+	MacSize = 6
+	MacMin  = 0x0
+	MacMax  = 0xFF
+)
+
+type GroupData struct {
+	Subs        Subscriber             `json:"subscriber"`
+	GroupID     uint32                 `json:"groupID"`
+	Weight      uint32                 `json:"weight"`
+	Priority    uint32                 `json:"priority"`
+	OnuID       uint32                 `json:"onuID"`
+	UniID       uint32                 `json:"uniID"`
+	AllocID     uint32                 `json:"allocId"`
+	GemPortID   uint32                 `json:"gemPortIds"`
+	SchedPolicy tp_pb.SchedulingPolicy `json:"schedPolicy"`
+	AddGroup    bool                   `json:"addGroup"`
+	AddFlow     bool                   `json:"addFlow"`
+	AddSched    bool                   `json:"addSched"`
+	AddQueue    bool                   `json:"addQueue"`
+	AddMember   bool                   `json:"addMember"`
+}
 
 func getTrafficSched(subs *Subscriber, direction tp_pb.Direction) []*tp_pb.TrafficScheduler {
 	var SchedCfg *tp_pb.SchedulerConfig
+	var err error
 
 	if direction == tp_pb.Direction_DOWNSTREAM {
-		SchedCfg = subs.RsrMgr.ResourceMgrs[subs.PonIntf].TechProfileMgr.
+		SchedCfg, err = subs.RsrMgr.ResourceMgrs[subs.PonIntf].TechProfileMgr.
 			GetDsScheduler(subs.TpInstance[subs.TestConfig.TpIDList[0]])
-
 	} else {
-		SchedCfg = subs.RsrMgr.ResourceMgrs[subs.PonIntf].TechProfileMgr.
+		SchedCfg, err = subs.RsrMgr.ResourceMgrs[subs.PonIntf].TechProfileMgr.
 			GetUsScheduler(subs.TpInstance[subs.TestConfig.TpIDList[0]])
+	}
+
+	if err != nil {
+		log.Errorw("Failed to create traffic schedulers", log.Fields{"direction": direction, "error": err})
+		return nil
 	}
 
 	// hard-code for now
@@ -92,10 +130,15 @@ func getTrafficSched(subs *Subscriber, direction tp_pb.Direction) []*tp_pb.Traff
 
 func getTrafficQueues(subs *Subscriber, direction tp_pb.Direction) []*tp_pb.TrafficQueue {
 
-	trafficQueues := subs.RsrMgr.ResourceMgrs[subs.PonIntf].TechProfileMgr.
+	trafficQueues, err := subs.RsrMgr.ResourceMgrs[subs.PonIntf].TechProfileMgr.
 		GetTrafficQueues(subs.TpInstance[subs.TestConfig.TpIDList[0]], direction)
 
-	return trafficQueues
+	if err == nil {
+		return trafficQueues
+	}
+
+	log.Errorw("Failed to create traffic queues", log.Fields{"direction": direction, "error": err})
+	return nil
 }
 
 func FormatClassfierAction(flowType string, direction string, subs *Subscriber) (oop.Classifier, oop.Action) {
@@ -202,7 +245,7 @@ func AddLldpFlow(oo oop.OpenoltClient, config *config.OpenOltScaleTesterConfig, 
 	var flowID []uint32
 	var err error
 
-	if flowID, err = rsrMgr.ResourceMgrs[uint32(config.NniIntfID)].GetResourceID(uint32(config.NniIntfID),
+	if flowID, err = rsrMgr.ResourceMgrs[uint32(config.NniIntfID)].GetResourceID(context.Background(), uint32(config.NniIntfID),
 		ponresourcemanager.FLOW_ID, 1); err != nil {
 		return err
 	}
@@ -226,11 +269,271 @@ func AddLldpFlow(oo oop.OpenoltClient, config *config.OpenOltScaleTesterConfig, 
 
 	if err != nil {
 		log.Errorw("Failed to Add LLDP flow to device", log.Fields{"err": err, "deviceFlow": flow})
-		rsrMgr.ResourceMgrs[uint32(config.NniIntfID)].FreeResourceID(uint32(config.NniIntfID),
+		rsrMgr.ResourceMgrs[uint32(config.NniIntfID)].FreeResourceID(context.Background(), uint32(config.NniIntfID),
 			ponresourcemanager.FLOW_ID, flowID)
 		return err
 	}
 	log.Debugw("LLDP flow added to device successfully ", log.Fields{"flow": flow})
+
+	return nil
+}
+
+func GenerateMac(isRand bool) []byte {
+	var mac []byte
+
+	if isRand {
+		for i := 0; i < MacSize; i++ {
+			mac = append(mac, byte(rand.Intn(MacMax-MacMin)+MacMin))
+		}
+	} else {
+		mac = []byte{0x12, 0xAB, 0x34, 0xCD, 0x56, 0xEF}
+	}
+
+	return mac
+}
+
+func GenerateMulticastMac(onu_id uint32, group_id uint32) []byte {
+	var mac []byte
+
+	mac = []byte{0x01, 0x00, 0x5E}
+
+	mac = append(mac, byte(onu_id%255))
+	mac = append(mac, byte(rand.Intn(MacMax-MacMin)+MacMin))
+	mac = append(mac, byte(group_id))
+
+	return mac
+}
+
+func PerformGroupOperation(grp *GroupData, groupCfg *oop.Group) (*oop.Empty, error) {
+	oo := grp.Subs.OpenOltClient
+
+	var err error
+	var res *oop.Empty
+
+	if res, err = oop.OpenoltClient.PerformGroupOperation(oo, context.Background(), groupCfg); err != nil {
+		log.Errorw("Failed to perform - PerformGroupOperation()", log.Fields{"err": err})
+		return nil, err
+	}
+
+	log.Info("Successfully called - PerformGroupOperation()")
+
+	return res, nil
+}
+
+func CreateGroup(grp *GroupData) (*oop.Empty, error) {
+	var groupCfg oop.Group
+
+	log.Infow("creating group", log.Fields{"GroupID": grp.GroupID})
+
+	groupCfg.Command = oop.Group_SET_MEMBERS
+	groupCfg.GroupId = grp.GroupID
+
+	return PerformGroupOperation(grp, &groupCfg)
+}
+
+func OpMulticastTrafficQueue(grp *GroupData, isCreating bool) (*oop.Empty, error) {
+	log.Infow("operating on multicast traffic queue", log.Fields{"Creating": isCreating, "GroupID": grp.GroupID})
+
+	oo := grp.Subs.OpenOltClient
+
+	var request tp_pb.TrafficQueues
+	request.IntfId = grp.Subs.PonIntf
+	request.OnuId = grp.Subs.OnuID
+	request.UniId = grp.Subs.UniID
+
+	var trafficQueues []*tp_pb.TrafficQueue
+
+	var trafficQueue tp_pb.TrafficQueue
+	trafficQueue.Direction = tp_pb.Direction_DOWNSTREAM
+	trafficQueue.Priority = grp.Priority
+	trafficQueue.Weight = grp.Weight
+	trafficQueue.GemportId = grp.GemPortID
+	trafficQueue.SchedPolicy = grp.SchedPolicy
+
+	trafficQueues = append(trafficQueues, &trafficQueue)
+
+	request.TrafficQueues = trafficQueues
+
+	var err error
+	var res *oop.Empty
+
+	if isCreating {
+		if res, err = oop.OpenoltClient.CreateTrafficQueues(oo, context.Background(), &request); err != nil {
+			log.Errorw("Failed to perform - CreateTrafficQueues()", log.Fields{"err": err})
+			return nil, err
+		}
+
+		log.Info("Successfully called - CreateTrafficQueues()")
+	} else {
+		if res, err = oop.OpenoltClient.RemoveTrafficQueues(oo, context.Background(), &request); err != nil {
+			log.Errorw("Failed to perform - RemoveTrafficQueues()", log.Fields{"err": err})
+			return nil, err
+		}
+
+		log.Info("Successfully called - RemoveTrafficQueues()")
+	}
+
+	return res, nil
+}
+
+func AddMulticastFlow(grp *GroupData) error {
+	log.Infow("add multicast flow", log.Fields{"GroupID": grp.GroupID})
+
+	oo := grp.Subs.OpenOltClient
+	config := grp.Subs.TestConfig
+	rsrMgr := grp.Subs.RsrMgr
+
+	var flowID []uint32
+	var err error
+
+	if flowID, err = rsrMgr.ResourceMgrs[uint32(config.NniIntfID)].GetResourceID(context.Background(), uint32(config.NniIntfID),
+		ponresourcemanager.FLOW_ID, 1); err != nil {
+		return err
+	}
+
+	flowClassifier := &oop.Classifier{
+		IPbits:     255,
+		OPbits:     255,
+		IVid:       55,
+		OVid:       255,
+		DstMac:     GenerateMulticastMac(grp.Subs.OnuID, grp.GroupID),
+		PktTagType: DoubleTag}
+
+	flow := oop.Flow{AccessIntfId: int32(grp.Subs.PonIntf), OnuId: int32(grp.Subs.OnuID), UniId: int32(grp.Subs.UniID), FlowId: flowID[0],
+		FlowType: "multicast", AllocId: int32(grp.AllocID), GemportId: int32(grp.GemPortID),
+		Classifier: flowClassifier, Priority: int32(grp.Priority), PortNo: uint32(grp.Subs.UniPortNo), GroupId: uint32(grp.GroupID)}
+
+	_, err = oo.FlowAdd(context.Background(), &flow)
+
+	st, _ := status.FromError(err)
+	if st.Code() == codes.AlreadyExists {
+		log.Debugw("Flow already exists", log.Fields{"err": err, "deviceFlow": flow})
+		return nil
+	}
+
+	if err != nil {
+		log.Errorw("Failed to add multicast flow to device", log.Fields{"err": err, "deviceFlow": flow})
+		rsrMgr.ResourceMgrs[uint32(grp.Subs.PonIntf)].FreeResourceID(context.Background(), uint32(config.NniIntfID),
+			ponresourcemanager.FLOW_ID, flowID)
+		return err
+	}
+
+	log.Debugw("Multicast flow added to device successfully ", log.Fields{"flow": flow})
+
+	return nil
+}
+
+func AddMulticastSched(grp *GroupData) error {
+	log.Infow("creating multicast sched", log.Fields{"GroupID": grp.GroupID})
+
+	SchedCfg := &tp_pb.SchedulerConfig{
+		Direction:    tp_pb.Direction_DOWNSTREAM,
+		AdditionalBw: tp_pb.AdditionalBW_AdditionalBW_BestEffort,
+		Priority:     grp.Priority,
+		Weight:       grp.Weight,
+		SchedPolicy:  tp_pb.SchedulingPolicy_WRR}
+
+	// hard-code for now
+	cir := 1948
+	cbs := 31768
+	eir := 100
+	ebs := 1000
+	pir := cir + eir
+	pbs := cbs + ebs
+
+	TfShInfo := &tp_pb.TrafficShapingInfo{Cir: uint32(cir), Cbs: uint32(cbs), Pir: uint32(pir), Pbs: uint32(pbs)}
+
+	TrafficSched := []*tp_pb.TrafficScheduler{grp.Subs.RsrMgr.ResourceMgrs[grp.Subs.PonIntf].TechProfileMgr.
+		GetTrafficScheduler(grp.Subs.TpInstance[grp.Subs.TestConfig.TpIDList[0]], SchedCfg, TfShInfo)}
+
+	if TrafficSched == nil {
+		log.Error("Create scheduler for multicast traffic failed")
+		return errors.New(ReasonCodeToReasonString(SCHED_CREATION_FAILED))
+	}
+
+	log.Debugw("Sending Traffic scheduler create to device",
+		log.Fields{"Direction": tp_pb.Direction_DOWNSTREAM, "TrafficScheds": TrafficSched})
+
+	if _, err := grp.Subs.OpenOltClient.CreateTrafficSchedulers(context.Background(), &tp_pb.TrafficSchedulers{
+		IntfId: grp.Subs.PonIntf, OnuId: grp.Subs.OnuID,
+		UniId: grp.Subs.UniID, PortNo: grp.Subs.UniPortNo,
+		TrafficScheds: TrafficSched}); err != nil {
+		log.Errorw("Failed to create traffic schedulers", log.Fields{"error": err})
+		return errors.New(ReasonCodeToReasonString(SCHED_CREATION_FAILED))
+	}
+
+	return nil
+}
+
+func OpMemberToGroup(grp *GroupData, isAdding bool) (*oop.Empty, error) {
+	log.Infow("operating on group", log.Fields{"Adding": isAdding})
+
+	var groupCfg oop.Group
+
+	if isAdding {
+		groupCfg.Command = oop.Group_ADD_MEMBERS
+	} else {
+		groupCfg.Command = oop.Group_REMOVE_MEMBERS
+	}
+
+	groupCfg.GroupId = grp.GroupID
+
+	var members []*oop.GroupMember
+
+	var member0 oop.GroupMember
+	member0.InterfaceId = grp.Subs.PonIntf
+	member0.GemPortId = grp.GemPortID
+	member0.Priority = grp.Priority
+	//member0.SchedPolicy = tp_pb.SchedulingPolicy_WRR
+	member0.InterfaceType = oop.GroupMember_PON
+
+	members = append(members, &member0)
+
+	groupCfg.Members = members
+
+	return PerformGroupOperation(grp, &groupCfg)
+}
+
+func AddMulticastQueueFlow(grp *GroupData) error {
+	var err error
+
+	log.Debugw("Create multicast queue flow", log.Fields{"GroupID": grp.GroupID, "AddGroup": grp.AddGroup,
+		"AddFlow": grp.AddFlow, "AddSched": grp.AddSched, "AddQueue": grp.AddQueue, "AddMember": grp.AddMember})
+
+	if grp.AddGroup {
+		if _, err = CreateGroup(grp); err != nil {
+			log.Error("Failed to add group to device")
+			return err
+		}
+	}
+
+	if grp.AddFlow {
+		if err = AddMulticastFlow(grp); err != nil {
+			log.Error("Failed to add multicast flow to device")
+			return err
+		}
+	}
+
+	if grp.AddSched {
+		if err = AddMulticastSched(grp); err != nil {
+			log.Error("Failed to add multicast sched to device")
+			return err
+		}
+	}
+
+	if grp.AddQueue {
+		if _, err = OpMulticastTrafficQueue(grp, true); err != nil {
+			log.Error("Failed to add multicast queue to device")
+			return err
+		}
+	}
+
+	if grp.AddMember {
+		if _, err = OpMemberToGroup(grp, true); err != nil {
+			log.Error("Failed to add member to group")
+			return err
+		}
+	}
 
 	return nil
 }

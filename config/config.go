@@ -19,9 +19,10 @@ package config
 import (
 	"flag"
 	"fmt"
-	"github.com/opencord/voltha-lib-go/v2/pkg/log"
 	"strconv"
 	"strings"
+
+	"github.com/opencord/voltha-lib-go/v3/pkg/log"
 )
 
 // Open OLT default constants
@@ -30,12 +31,13 @@ const (
 	defaultOpenOltAgentPort        = 9191
 	defaultNumOfOnu                = 128
 	defaultNumOfSubscribersPerOnu  = 1
-	defaultWorkFlowName            = "ATT"
+	defaultWorkFlowName            = "TT"
 	defaultTimeIntervalBetweenSubs = 5 // in seconds
 	defaultNniIntfId               = 0
-	defaultKVstoreHost             = "192.168.1.11"
+	defaultKVstoreHost             = "192.168.1.1"
 	defaultKVstorePort             = 2379
 	defaultTpIDs                   = "64"
+	defaultIsGroupTest             = false
 )
 
 // OpenOltScaleTesterConfigConfig represents the set of configurations used by the read-write adaptercore service
@@ -53,6 +55,7 @@ type OpenOltScaleTesterConfig struct {
 	KVStorePort             int
 	TpIDsString             string
 	TpIDList                []int
+	IsGroupTest             bool
 }
 
 func init() {
@@ -83,6 +86,7 @@ func NewOpenOltScaleTesterConfig() *OpenOltScaleTesterConfig {
 		KVStoreHost:             defaultKVstoreHost,
 		KVStorePort:             defaultKVstorePort,
 		TpIDList:                GetTpIDList(defaultTpIDs),
+		IsGroupTest:             defaultIsGroupTest,
 	}
 	return &OpenOltScaleTesterConfig
 }
@@ -120,6 +124,8 @@ func (st *OpenOltScaleTesterConfig) ParseCommandArguments() {
 	help = fmt.Sprintf("Command seperated TP ID list for Workflow")
 	flag.StringVar(&(st.TpIDsString), "tp_ids", defaultTpIDs, help)
 
-	flag.Parse()
+	help = fmt.Sprintf("Is this run a group test")
+	flag.BoolVar(&(st.IsGroupTest), "is_group_test", defaultIsGroupTest, help)
 
+	flag.Parse()
 }

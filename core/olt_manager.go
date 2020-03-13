@@ -22,15 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/cenkalti/backoff/v3"
-	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v2/pkg/db/kvstore"
-	"github.com/opencord/voltha-lib-go/v2/pkg/log"
-	"github.com/opencord/voltha-lib-go/v2/pkg/techprofile"
-	oop "github.com/opencord/voltha-protos/v2/go/openolt"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"io"
 	"io/ioutil"
 	"os"
@@ -38,6 +29,16 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/cenkalti/backoff/v3"
+	"github.com/opencord/openolt-scale-tester/config"
+	"github.com/opencord/voltha-lib-go/v3/pkg/db/kvstore"
+	"github.com/opencord/voltha-lib-go/v3/pkg/log"
+	"github.com/opencord/voltha-lib-go/v3/pkg/techprofile"
+	oop "github.com/opencord/voltha-protos/v3/go/openolt"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -114,12 +115,12 @@ func (om *OpenOltManager) readAndLoadTPsToEtcd() {
 		}
 		kvPath := fmt.Sprintf(TechProfileKVPath, om.deviceInfo.Technology, tpID)
 		tpJson, err := json.Marshal(tp)
-		err = client.Put(kvPath, tpJson, 2)
+		err = client.Put(context.Background(), kvPath, tpJson)
 		if err != nil {
 			log.Fatalw("tp-put-to-etcd-failed", log.Fields{"tpPath": kvPath, "err": err})
 		}
 		// verify the PUT succeeded.
-		kvResult, err := client.Get(kvPath, 2)
+		kvResult, err := client.Get(context.Background(), kvPath)
 		if kvResult == nil {
 			log.Fatal("tp-not-found-on-kv-after-load", log.Fields{"key": kvPath, "err": err})
 		} else {
@@ -406,7 +407,7 @@ func (om *OpenOltManager) handleIndication(indication *oop.Indication) {
 		log.Debugw("Received Omci indication ", log.Fields{"IntfId": omciInd.IntfId, "OnuId": omciInd.OnuId, "pkt": hex.EncodeToString(omciInd.Pkt)})
 	case *oop.Indication_PktInd:
 		pktInd := indication.GetPktInd()
-		log.Infow("Received pakcet indication ", log.Fields{"PktInd": pktInd})
+		log.Infow("Received packet indication ", log.Fields{"PktInd": pktInd})
 		/*
 				case *oop.Indication_PortStats:
 				portStats := indication.GetPortStats()

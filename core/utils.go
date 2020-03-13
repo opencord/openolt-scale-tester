@@ -19,8 +19,8 @@ package core
 import (
 	"fmt"
 
-	"github.com/opencord/voltha-lib-go/v2/pkg/log"
-	"github.com/opencord/voltha-protos/v2/go/openolt"
+	"github.com/opencord/voltha-lib-go/v3/pkg/log"
+	"github.com/opencord/voltha-protos/v3/go/openolt"
 )
 
 type DtStagKey struct {
@@ -31,12 +31,14 @@ var currDtStag uint32
 var DtStag map[DtStagKey]uint32
 var DtCtag map[uint32]uint32
 var AttCtag map[uint32]uint32
+var TtCtag map[uint32]uint32
 
 func init() {
 	_, _ = log.AddPackage(log.JSON, log.DebugLevel, nil)
 	AttCtag = make(map[uint32]uint32)
 	DtCtag = make(map[uint32]uint32)
 	DtStag = make(map[DtStagKey]uint32)
+	TtCtag = make(map[uint32]uint32)
 }
 
 const (
@@ -97,6 +99,18 @@ func GetDtCtag(ponIntf uint32) uint32 {
 	return DtCtag[ponIntf]
 }
 
+func GetTtCtag(ponIntf uint32) uint32 {
+	var currCtag uint32
+	var ok bool
+	if currCtag, ok = TtCtag[ponIntf]; !ok {
+		// Start with ctag 1
+		TtCtag[ponIntf] = 1
+		return TtCtag[ponIntf]
+	}
+	TtCtag[ponIntf] = currCtag + 1
+	return TtCtag[ponIntf]
+}
+
 func GetAttStag(ponIntf uint32) uint32 {
 	// start with stag 2
 	return ponIntf + 2
@@ -115,6 +129,11 @@ func GetDtStag(ponIntf uint32, onuID uint32, uniID uint32) uint32 {
 	return DtStag[key]
 }
 
+func GetTtStag(ponIntf uint32) uint32 {
+	// start with stag 2
+	return ponIntf + 2
+}
+
 // TODO: More workflow support to be added here
 func GetCtag(workFlowName string, ponIntf uint32) uint32 {
 	switch workFlowName {
@@ -122,6 +141,8 @@ func GetCtag(workFlowName string, ponIntf uint32) uint32 {
 		return GetAttCtag(ponIntf)
 	case "DT":
 		return GetDtCtag(ponIntf)
+	case "TT":
+		return GetTtCtag(ponIntf)
 	default:
 		log.Errorw("unknown-workflowname", log.Fields{"workflow": workFlowName})
 	}
@@ -134,6 +155,8 @@ func GetStag(workFlowName string, ponIntf uint32, onuID uint32, uniID uint32) ui
 		return GetAttStag(ponIntf)
 	case "DT":
 		return GetDtStag(ponIntf, onuID, uniID)
+	case "TT":
+		return GetTtStag(ponIntf)
 	default:
 		log.Errorw("unknown-workflowname", log.Fields{"workflow": workFlowName})
 	}

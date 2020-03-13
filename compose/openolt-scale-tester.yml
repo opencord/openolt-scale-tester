@@ -27,13 +27,14 @@ services:
       "--openolt_agent_ip_address=${OPENOLT_AGENT_IP_ADDRESS}",
       "--openolt_agent_port=9191",
       "--openolt_agent_nni_intf_id=0",
-      "--num_of_onu=512",
+      "--num_of_onu=16",
       "--subscribers_per_onu=1",
       "--workflow_name=ATT",
       "--time_interval_between_subs=0",
       "--kv_store_host=${DOCKER_HOST_IP}",
       "--kv_store_port=2379",
-      "--tp_ids=64"
+      "--tp_ids=64",
+      "--is_group_test=false"
     ]
     networks:
     - default

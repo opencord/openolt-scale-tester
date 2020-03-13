@@ -18,10 +18,12 @@ package core
 
 import (
 	"fmt"
+
 	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v2/pkg/log"
-	"github.com/opencord/voltha-lib-go/v2/pkg/techprofile"
-	oop "github.com/opencord/voltha-protos/v2/go/openolt"
+	"github.com/opencord/voltha-lib-go/v3/pkg/log"
+	"github.com/opencord/voltha-lib-go/v3/pkg/techprofile"
+	oop "github.com/opencord/voltha-protos/v3/go/openolt"
+	"golang.org/x/net/context"
 )
 
 func init() {
@@ -86,7 +88,8 @@ type Subscriber struct {
 	RsrMgr        *OpenOltResourceMgr
 }
 
-func (subs *Subscriber) Start(onuCh chan bool) {
+func (subs *Subscriber) Start(onuCh chan bool, isGroup bool) {
+	var err error
 
 	log.Infow("workflow-deploy-started-for-subscriber", log.Fields{"subsName": subs.SubscriberName})
 
@@ -94,9 +97,9 @@ func (subs *Subscriber) Start(onuCh chan bool) {
 
 	for _, tpID := range subs.TestConfig.TpIDList {
 		uniPortName := fmt.Sprintf(UniPortName, subs.PonIntf, subs.OnuID, subs.UniID)
-		if subs.TpInstance[tpID] =
-			subs.RsrMgr.ResourceMgrs[subs.PonIntf].TechProfileMgr.CreateTechProfInstance(
-				uint32(tpID), uniPortName, subs.PonIntf); subs.TpInstance[tpID] == nil {
+		if subs.TpInstance[tpID], err =
+			subs.RsrMgr.ResourceMgrs[subs.PonIntf].TechProfileMgr.CreateTechProfInstance(context.Background(),
+				uint32(tpID), uniPortName, subs.PonIntf); err != nil {
 			log.Errorw("error-creating-tp-instance-for-subs",
 				log.Fields{"subsName": subs.SubscriberName, "onuID": subs.OnuID, "tpID": tpID})
 
@@ -107,7 +110,7 @@ func (subs *Subscriber) Start(onuCh chan bool) {
 		}
 	}
 
-	DeployWorkflow(subs)
+	DeployWorkflow(subs, isGroup)
 
 	log.Infow("workflow-deploy-completed-for-subscriber", log.Fields{"subsName": subs.SubscriberName})
 

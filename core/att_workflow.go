@@ -21,10 +21,10 @@ import (
 	"strings"
 
 	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v2/pkg/log"
-	"github.com/opencord/voltha-lib-go/v2/pkg/ponresourcemanager"
-	oop "github.com/opencord/voltha-protos/v2/go/openolt"
-	tp_pb "github.com/opencord/voltha-protos/v2/go/tech_profile"
+	"github.com/opencord/voltha-lib-go/v3/pkg/log"
+	"github.com/opencord/voltha-lib-go/v3/pkg/ponresourcemanager"
+	oop "github.com/opencord/voltha-protos/v3/go/openolt"
+	tp_pb "github.com/opencord/voltha-protos/v3/go/tech_profile"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -42,7 +42,7 @@ func AddDhcpIPV4Flow(oo oop.OpenoltClient, config *config.OpenOltScaleTesterConf
 	var flowID []uint32
 	var err error
 
-	if flowID, err = rsrMgr.ResourceMgrs[uint32(config.NniIntfID)].GetResourceID(uint32(config.NniIntfID),
+	if flowID, err = rsrMgr.ResourceMgrs[uint32(config.NniIntfID)].GetResourceID(context.Background(), uint32(config.NniIntfID),
 		ponresourcemanager.FLOW_ID, 1); err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func AddDhcpIPV4Flow(oo oop.OpenoltClient, config *config.OpenOltScaleTesterConf
 
 	if err != nil {
 		log.Errorw("Failed to Add DHCP IPv4 to device", log.Fields{"err": err, "deviceFlow": flow})
-		rsrMgr.ResourceMgrs[uint32(config.NniIntfID)].FreeResourceID(uint32(config.NniIntfID),
+		rsrMgr.ResourceMgrs[uint32(config.NniIntfID)].FreeResourceID(context.Background(), uint32(config.NniIntfID),
 			ponresourcemanager.FLOW_ID, flowID)
 		return err
 	}
@@ -80,7 +80,7 @@ func AddDhcpIPV6Flow(oo oop.OpenoltClient, config *config.OpenOltScaleTesterConf
 	var flowID []uint32
 	var err error
 
-	if flowID, err = rsrMgr.ResourceMgrs[uint32(config.NniIntfID)].GetResourceID(uint32(config.NniIntfID),
+	if flowID, err = rsrMgr.ResourceMgrs[uint32(config.NniIntfID)].GetResourceID(context.Background(), uint32(config.NniIntfID),
 		ponresourcemanager.FLOW_ID, 1); err != nil {
 		return err
 	}
@@ -105,7 +105,7 @@ func AddDhcpIPV6Flow(oo oop.OpenoltClient, config *config.OpenOltScaleTesterConf
 
 	if err != nil {
 		log.Errorw("Failed to Add DHCP IPV6 to device", log.Fields{"err": err, "deviceFlow": flow})
-		rsrMgr.ResourceMgrs[uint32(config.NniIntfID)].FreeResourceID(uint32(config.NniIntfID),
+		rsrMgr.ResourceMgrs[uint32(config.NniIntfID)].FreeResourceID(context.Background(), uint32(config.NniIntfID),
 			ponresourcemanager.FLOW_ID, flowID)
 		return err
 	}
@@ -216,12 +216,12 @@ func (att AttWorkFlow) ProvisionEapFlow(subs *Subscriber) error {
 		for pos, pbitSet := range strings.TrimPrefix(pBitMap, "0b") {
 			if pbitSet == '1' {
 				pcp := uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
-				if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(uint32(subs.PonIntf),
+				if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(context.Background(), uint32(subs.PonIntf),
 					ponresourcemanager.FLOW_ID, 1); err != nil {
 					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
 				} else {
 					if err := AddFlow(subs, EapolFlow, Upstream, flowID[0], allocID, gemID, pcp); err != nil {
-						subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(uint32(subs.PonIntf),
+						subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(context.Background(), uint32(subs.PonIntf),
 							ponresourcemanager.FLOW_ID, flowID)
 						return err
 					}
@@ -247,12 +247,12 @@ func (att AttWorkFlow) ProvisionDhcpIPV4Flow(subs *Subscriber) error {
 		for pos, pbitSet := range strings.TrimPrefix(pBitMap, "0b") {
 			if pbitSet == '1' {
 				pcp := uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
-				if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(uint32(subs.PonIntf),
+				if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(context.Background(), uint32(subs.PonIntf),
 					ponresourcemanager.FLOW_ID, 1); err != nil {
 					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
 				} else {
 					if err := AddFlow(subs, DhcpFlowIPV4, Upstream, flowID[0], allocID, gemID, pcp); err != nil {
-						subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(uint32(subs.PonIntf),
+						subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(context.Background(), uint32(subs.PonIntf),
 							ponresourcemanager.FLOW_ID, flowID)
 						return err
 					}
@@ -278,12 +278,12 @@ func (att AttWorkFlow) ProvisionDhcpIPV6Flow(subs *Subscriber) error {
 		for pos, pbitSet := range strings.TrimPrefix(pBitMap, "0b") {
 			if pbitSet == '1' {
 				pcp := uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
-				if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(uint32(subs.PonIntf),
+				if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(context.Background(), uint32(subs.PonIntf),
 					ponresourcemanager.FLOW_ID, 1); err != nil {
 					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
 				} else {
 					if err := AddFlow(subs, DhcpFlowIPV6, Upstream, flowID[0], allocID, gemID, pcp); err != nil {
-						subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(uint32(subs.PonIntf),
+						subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(context.Background(), uint32(subs.PonIntf),
 							ponresourcemanager.FLOW_ID, flowID)
 						return err
 					}
@@ -314,7 +314,7 @@ func (att AttWorkFlow) ProvisionHsiaFlow(subs *Subscriber) error {
 		for pos, pbitSet := range strings.TrimPrefix(pBitMap, "0b") {
 			if pbitSet == '1' {
 				pcp := uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
-				if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(uint32(subs.PonIntf),
+				if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(context.Background(), uint32(subs.PonIntf),
 					ponresourcemanager.FLOW_ID, 1); err != nil {
 					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
 				} else {
@@ -328,7 +328,7 @@ func (att AttWorkFlow) ProvisionHsiaFlow(subs *Subscriber) error {
 							log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
 					}
 					if errUs != nil && errDs != nil {
-						subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(uint32(subs.PonIntf),
+						subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(context.Background(), uint32(subs.PonIntf),
 							ponresourcemanager.FLOW_ID, flowID)
 					}
 					if errUs != nil || errDs != nil {
@@ -341,5 +341,25 @@ func (att AttWorkFlow) ProvisionHsiaFlow(subs *Subscriber) error {
 			}
 		}
 	}
+	return nil
+}
+
+func (att AttWorkFlow) ProvisionVoipFlow(subs *Subscriber) error {
+	log.Info("att-workflow-does-not-support-voip-yet--nothing-to-do")
+	return nil
+}
+
+func (att AttWorkFlow) ProvisionVodFlow(subs *Subscriber) error {
+	log.Info("att-workflow-does-not-support-vod-yet--nothing-to-do")
+	return nil
+}
+
+func (att AttWorkFlow) ProvisionMgmtFlow(subs *Subscriber) error {
+	log.Info("att-workflow-does-not-support-mgmt-yet--nothing-to-do")
+	return nil
+}
+
+func (att AttWorkFlow) ProvisionMulticastFlow(subs *Subscriber) error {
+	log.Info("att-workflow-does-not-support-multicast-yet--nothing-to-do")
 	return nil
 }

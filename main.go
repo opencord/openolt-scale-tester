@@ -19,14 +19,16 @@ package main
 
 import (
 	"fmt"
-	"github.com/opencord/openolt-scale-tester/core"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
+	"github.com/opencord/openolt-scale-tester/core"
+
 	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v2/pkg/log"
+	"github.com/opencord/voltha-lib-go/v3/pkg/log"
 )
 
 func init() {
@@ -82,6 +84,9 @@ func main() {
 	sc := OpenOltScaleTester{}
 	cf := config.NewOpenOltScaleTesterConfig()
 	cf.ParseCommandArguments()
+
+	cf.OpenOltAgentAddress = cf.OpenOltAgentIP + ":" + strconv.FormatUint(uint64(cf.OpenOltAgentPort), 10)
+
 	// Generate TP ID List from TP ID string parsed from command line for a given subscriber
 	cf.TpIDList = config.GetTpIDList(cf.TpIDsString)
 	sc.openOltManager = core.NewOpenOltManager(cf.OpenOltAgentAddress)
@@ -100,7 +105,7 @@ func main() {
 		log.With(log.Fields{"error": err}).Fatal("Cannot setup logging")
 	}
 
-	log.SetPackageLogLevel("github.com/opencord/voltha-lib-go/v2/pkg/adapters/common", log.DebugLevel)
+	log.SetPackageLogLevel("github.com/opencord/voltha-lib-go/v3/pkg/adapters/common", log.DebugLevel)
 
 	log.Infow("config", log.Fields{"config": *cf})
 

@@ -21,10 +21,10 @@ import (
 	"strings"
 
 	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v2/pkg/log"
-	"github.com/opencord/voltha-lib-go/v2/pkg/ponresourcemanager"
-	oop "github.com/opencord/voltha-protos/v2/go/openolt"
-	tp_pb "github.com/opencord/voltha-protos/v2/go/tech_profile"
+	"github.com/opencord/voltha-lib-go/v3/pkg/log"
+	"github.com/opencord/voltha-lib-go/v3/pkg/ponresourcemanager"
+	oop "github.com/opencord/voltha-protos/v3/go/openolt"
+	tp_pb "github.com/opencord/voltha-protos/v3/go/tech_profile"
 	"golang.org/x/net/context"
 )
 
@@ -156,12 +156,12 @@ func (dt DtWorkFlow) ProvisionHsiaFlow(subs *Subscriber) error {
 		for pos, pbitSet := range strings.TrimPrefix(pBitMap, "0b") {
 			if pbitSet == '1' {
 				pcp := uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
-				if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(uint32(subs.PonIntf),
+				if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(context.Background(), uint32(subs.PonIntf),
 					ponresourcemanager.FLOW_ID, 1); err != nil {
 					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
 				} else {
 					if err := AddFlow(subs, HsiaFlow, Upstream, flowID[0], allocID, gemID, pcp); err != nil {
-						subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(uint32(subs.PonIntf),
+						subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(context.Background(), uint32(subs.PonIntf),
 							ponresourcemanager.FLOW_ID, flowID)
 						return err
 					}
@@ -172,5 +172,25 @@ func (dt DtWorkFlow) ProvisionHsiaFlow(subs *Subscriber) error {
 			}
 		}
 	}
+	return nil
+}
+
+func (dt DtWorkFlow) ProvisionVoipFlow(subs *Subscriber) error {
+	log.Info("dt-workflow-does-not-support-voip-yet--nothing-to-do")
+	return nil
+}
+
+func (dt DtWorkFlow) ProvisionVodFlow(subs *Subscriber) error {
+	log.Info("dt-workflow-does-not-support-vod-yet--nothing-to-do")
+	return nil
+}
+
+func (dt DtWorkFlow) ProvisionMgmtFlow(subs *Subscriber) error {
+	log.Info("dt-workflow-does-not-support-mgmt-yet--nothing-to-do")
+	return nil
+}
+
+func (dt DtWorkFlow) ProvisionMulticastFlow(subs *Subscriber) error {
+	log.Info("dt-workflow-does-not-support-multicast-yet--nothing-to-do")
 	return nil
 }

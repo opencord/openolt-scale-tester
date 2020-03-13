@@ -17,11 +17,12 @@
 package core
 
 import (
-	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v2/pkg/log"
-	oop "github.com/opencord/voltha-protos/v2/go/openolt"
 	"strconv"
 	"time"
+
+	"github.com/opencord/openolt-scale-tester/config"
+	"github.com/opencord/voltha-lib-go/v3/pkg/log"
+	oop "github.com/opencord/voltha-protos/v3/go/openolt"
 )
 
 func init() {
@@ -72,7 +73,7 @@ func (onu *OnuDevice) Start(oltCh chan bool) {
 
 		log.Infow("subscriber-provision-started-from-onu-manager", log.Fields{"subsName": subsName})
 		// Start provisioning the subscriber
-		go subs.Start(onuCh)
+		go subs.Start(onuCh, onu.testConfig.IsGroupTest)
 
 		// Wait for subscriber provision to complete
 		<-onuCh

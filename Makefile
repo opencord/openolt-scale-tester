@@ -62,6 +62,8 @@ help:
 build: docker-build
 
 docker-build: local-protos local-lib-go
+	go mod vendor
+	go build -mod=vendor
 	docker build $(DOCKER_BUILD_ARGS) -t ${IMAGENAME} -f docker/Dockerfile .
 
 docker-push:
@@ -137,6 +139,9 @@ endif
 
 test: go_junit_install gocover_cobertura_install
 	@mkdir -p ./tests/results
+
+	go mod vendor
+	go build -mod=vendor
 
 	@go test -mod=vendor -v -coverprofile ./tests/results/go-test-coverage.out -covermode count ./... 2>&1 | tee ./tests/results/go-test-results.out ;\
 	RETURN=$$? ;\
