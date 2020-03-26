@@ -62,8 +62,6 @@ help:
 build: docker-build
 
 docker-build: local-protos local-lib-go
-	go mod vendor
-	go build -mod=vendor
 	docker build $(DOCKER_BUILD_ARGS) -t ${IMAGENAME} -f docker/Dockerfile .
 
 docker-push:
@@ -103,51 +101,8 @@ lint-mod:
 
 lint: lint-style lint-sanity lint-mod
 
-__GOPATH=$(shell go env GOPATH)
-
-# Rules to automatically install golangci-lint
-GOLANGCI_LINT_TOOL?=$(shell which golangci-lint)
-ifeq (,$(GOLANGCI_LINT_TOOL))
-GOLANGCI_LINT_TOOL=$(__GOPATH)/bin/golangci-lint
-golangci_lint_tool_install:
-	# Same version as installed by Jenkins ci-management
-	# Note that install using `go get` is not recommended as per https://github.com/golangci/golangci-lint
-	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $(__GOPATH)/bin v1.17.0
-else
-golangci_lint_tool_install:
-endif
-
-# Rules to automatically install go-junit-report
-GO_JUNIT_REPORT?=$(shell which go-junit-report)
-ifeq (,$(GO_JUNIT_REPORT))
-GO_JUNIT_REPORT=$(__GOPATH)/bin/go-junit-report
-go_junit_install:
-	go get -u github.com/jstemmer/go-junit-report
-else
-go_junit_install:
-endif
-
-# Rules to automatically install gocover-covertura
-GOCOVER_COBERTURA?=$(shell which gocover-cobertura)
-ifeq (,$(GOCOVER_COBERTURA))
-	@GOCOVER_COBERTURA=$(__GOPATH)/bin/gocover-cobertura
-gocover_cobertura_install:
-	go get -u github.com/t-yuki/gocover-cobertura
-else
-gocover_cobertura_install:
-endif
-
-test: go_junit_install gocover_cobertura_install
-	@mkdir -p ./tests/results
-
-	go mod vendor
-	go build -mod=vendor
-
-	@go test -mod=vendor -v -coverprofile ./tests/results/go-test-coverage.out -covermode count ./... 2>&1 | tee ./tests/results/go-test-results.out ;\
-	RETURN=$$? ;\
-	$(GO_JUNIT_REPORT) < ./tests/results/go-test-results.out > ./tests/results/go-test-results.xml ;\
-	$(GOCOVER_COBERTURA) < ./tests/results/go-test-coverage.out > ./tests/results/go-test-coverage.xml ;\
-	exit $$RETURN
+# There is no unit test for openolt-scale-tester as of today. Just ensure docker-build is successful
+test: docker-build
 
 GOLANGCI_LINT_TOOL:=$(shell which golangci-lint)
 sca: golangci_lint_tool_install

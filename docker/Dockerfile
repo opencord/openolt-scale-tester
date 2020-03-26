@@ -27,7 +27,7 @@ COPY . .
 # Build openolt
 SHELL ["/bin/ash", "-o", "pipefail", "-c"]
 ENV GO111MODULE=on
-RUN go build -mod=vendor -o /go/bin/openolt-scale-tester
+RUN  go mod vendor && go build -mod=vendor && go build -mod=vendor -o /go/bin/openolt-scale-tester
 
 # -------------
 # Image creation stage
