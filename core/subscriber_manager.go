@@ -18,6 +18,7 @@ package core
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/opencord/openolt-scale-tester/config"
 	"github.com/opencord/voltha-lib-go/v3/pkg/log"
@@ -86,9 +87,11 @@ type Subscriber struct {
 	OpenOltClient oop.OpenoltClient
 	TestConfig    *config.OpenOltScaleTesterConfig
 	RsrMgr        *OpenOltResourceMgr
+	subWg         *sync.WaitGroup
 }
 
-func (subs *Subscriber) Start(onuCh chan bool, isGroup bool) {
+func (subs *Subscriber) Start(isGroup bool) {
+
 	var err error
 
 	log.Infow("workflow-deploy-started-for-subscriber", log.Fields{"subsName": subs.SubscriberName})
@@ -97,22 +100,20 @@ func (subs *Subscriber) Start(onuCh chan bool, isGroup bool) {
 
 	for _, tpID := range subs.TestConfig.TpIDList {
 		uniPortName := fmt.Sprintf(UniPortName, subs.PonIntf, subs.OnuID, subs.UniID)
-		if subs.TpInstance[tpID], err =
-			subs.RsrMgr.ResourceMgrs[subs.PonIntf].TechProfileMgr.CreateTechProfInstance(context.Background(),
-				uint32(tpID), uniPortName, subs.PonIntf); err != nil {
+		subs.RsrMgr.GemIDAllocIDLock[subs.PonIntf].Lock()
+		subs.TpInstance[tpID], err = subs.RsrMgr.ResourceMgrs[subs.PonIntf].TechProfileMgr.CreateTechProfInstance(context.Background(),
+			uint32(tpID), uniPortName, subs.PonIntf)
+		subs.RsrMgr.GemIDAllocIDLock[subs.PonIntf].Unlock()
+		if err != nil {
 			log.Errorw("error-creating-tp-instance-for-subs",
 				log.Fields{"subsName": subs.SubscriberName, "onuID": subs.OnuID, "tpID": tpID})
 
 			subs.Reason = ReasonCodeToReasonString(TP_INSTANCE_CREATION_FAILED)
-			onuCh <- true
-
 			return
 		}
 	}
 
-	DeployWorkflow(subs, isGroup)
+	go DeployWorkflow(subs, isGroup)
 
-	log.Infow("workflow-deploy-completed-for-subscriber", log.Fields{"subsName": subs.SubscriberName})
-
-	onuCh <- true
+	log.Infow("workflow-deploy-started-for-subscriber", log.Fields{"subsName": subs.SubscriberName})
 }

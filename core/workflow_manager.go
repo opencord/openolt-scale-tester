@@ -44,6 +44,9 @@ type WorkFlow interface {
 }
 
 func DeployWorkflow(subs *Subscriber, isGroup bool) {
+
+	defer subs.subWg.Done()
+
 	var wf = getWorkFlow(subs)
 
 	if isGroup {
@@ -104,6 +107,7 @@ func DeployWorkflow(subs *Subscriber, isGroup bool) {
 		}
 	}
 
+	log.Infow("subscriber-provision-completed-from-onu-manager", log.Fields{"subsName": subs.SubscriberName})
 	subs.Reason = ReasonCodeToReasonString(SUBSCRIBER_PROVISION_SUCCESS)
 }
 

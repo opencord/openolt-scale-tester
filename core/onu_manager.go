@@ -18,6 +18,7 @@ package core
 
 import (
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/opencord/openolt-scale-tester/config"
@@ -45,13 +46,13 @@ type OnuDevice struct {
 	openOltClient            oop.OpenoltClient
 	testConfig               *config.OpenOltScaleTesterConfig
 	rsrMgr                   *OpenOltResourceMgr
+	onuWg                    *sync.WaitGroup
 }
 
-func (onu *OnuDevice) Start(oltCh chan bool) {
+func (onu *OnuDevice) Start() {
 	onu.SubscriberMap = make(map[SubscriberKey]*Subscriber)
-	onuCh := make(chan bool)
 	var subs uint
-
+	var subWg sync.WaitGroup
 	log.Infow("onu-provision-started-from-onu-manager", log.Fields{"onuID": onu.OnuID, "ponIntf": onu.PonIntf})
 
 	for subs = 0; subs < onu.testConfig.SubscribersPerOnu; subs++ {
@@ -67,24 +68,22 @@ func (onu *OnuDevice) Start(oltCh chan bool) {
 			OpenOltClient:  onu.openOltClient,
 			TestConfig:     onu.testConfig,
 			RsrMgr:         onu.rsrMgr,
+			subWg:          &subWg,
 		}
 		subsKey := SubscriberKey{subsName}
 		onu.SubscriberMap[subsKey] = &subs
 
+		subWg.Add(1)
 		log.Infow("subscriber-provision-started-from-onu-manager", log.Fields{"subsName": subsName})
 		// Start provisioning the subscriber
-		go subs.Start(onuCh, onu.testConfig.IsGroupTest)
+		go subs.Start(onu.testConfig.IsGroupTest)
 
-		// Wait for subscriber provision to complete
-		<-onuCh
-
-		log.Infow("subscriber-provision-completed-from-onu-manager", log.Fields{"subsName": subsName})
-
-		//Sleep for configured interval before provisioning another subscriber
-		time.Sleep(time.Duration(onu.testConfig.TimeIntervalBetweenSubs))
 	}
-	// Indicate that the ONU provisioning is complete
-	oltCh <- true
+
+	// Wait for all the subscribers on the ONU to complete provisioning
+	subWg.Wait()
+	// Signal that ONU provisioning is complete
+	onu.onuWg.Done()
 
 	log.Infow("onu-provision-completed-from-onu-manager", log.Fields{"onuID": onu.OnuID, "ponIntf": onu.PonIntf})
 }

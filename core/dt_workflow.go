@@ -22,7 +22,6 @@ import (
 
 	"github.com/opencord/openolt-scale-tester/config"
 	"github.com/opencord/voltha-lib-go/v3/pkg/log"
-	"github.com/opencord/voltha-lib-go/v3/pkg/ponresourcemanager"
 	oop "github.com/opencord/voltha-protos/v3/go/openolt"
 	tp_pb "github.com/opencord/voltha-protos/v3/go/tech_profile"
 	"golang.org/x/net/context"
@@ -143,7 +142,7 @@ func (dt DtWorkFlow) ProvisionIgmpFlow(subs *Subscriber) error {
 
 func (dt DtWorkFlow) ProvisionHsiaFlow(subs *Subscriber) error {
 	var err error
-	var flowID []uint32
+	var flowID uint32
 	var gemPortIDs []uint32
 
 	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocID
@@ -156,16 +155,13 @@ func (dt DtWorkFlow) ProvisionHsiaFlow(subs *Subscriber) error {
 		for pos, pbitSet := range strings.TrimPrefix(pBitMap, "0b") {
 			if pbitSet == '1' {
 				pcp := uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
-				if flowID, err = subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].GetResourceID(context.Background(), uint32(subs.PonIntf),
-					ponresourcemanager.FLOW_ID, 1); err != nil {
+				if flowID, err = subs.RsrMgr.GetFlowID(context.Background(), uint32(subs.PonIntf)); err != nil {
 					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
 				} else {
-					if err := AddFlow(subs, HsiaFlow, Upstream, flowID[0], allocID, gemID, pcp); err != nil {
-						subs.RsrMgr.ResourceMgrs[uint32(subs.PonIntf)].FreeResourceID(context.Background(), uint32(subs.PonIntf),
-							ponresourcemanager.FLOW_ID, flowID)
+					if err := AddFlow(subs, HsiaFlow, Upstream, flowID, allocID, gemID, pcp); err != nil {
 						return err
 					}
-					if err := AddFlow(subs, HsiaFlow, Downstream, flowID[0], allocID, gemID, pcp); err != nil {
+					if err := AddFlow(subs, HsiaFlow, Downstream, flowID, allocID, gemID, pcp); err != nil {
 						return err
 					}
 				}

@@ -19,6 +19,7 @@ package core
 import (
 	"errors"
 	"math/rand"
+	"time"
 
 	"github.com/opencord/openolt-scale-tester/config"
 	"github.com/opencord/voltha-lib-go/v3/pkg/log"
@@ -536,4 +537,77 @@ func AddMulticastQueueFlow(grp *GroupData) error {
 	}
 
 	return nil
+}
+
+func CreateTrafficSchedWithRetry(OpenOltClient oop.OpenoltClient, sched *oop.TrafficSchedulers) error {
+	maxRetry := 20
+	if _, err := OpenOltClient.CreateTrafficSchedulers(context.Background(), sched); err == nil {
+		log.Info("succeeded in first attempt")
+		return nil
+	} else {
+		log.Info("going for a retry")
+	}
+	for i := 0; i < maxRetry; i++ {
+		if _, err := OpenOltClient.CreateTrafficSchedulers(context.Background(), sched); err != nil {
+			log.Error("retying after delay")
+			time.Sleep(50 * time.Millisecond)
+			continue
+		} else {
+			log.Infow("succeeded in retry iteration=%d!!", log.Fields{"i": i})
+			return nil
+		}
+	}
+
+	return errors.New("failed-to-create-traffic-sched-after-all-retries")
+}
+
+func CreateTrafficQueuesWithRetry(OpenOltClient oop.OpenoltClient, queue *oop.TrafficQueues) error {
+	maxRetry := 20
+	if _, err := OpenOltClient.CreateTrafficQueues(context.Background(), queue); err == nil {
+		log.Info("succeeded in first attempt")
+		return nil
+	}
+	for i := 0; i < maxRetry; i++ {
+		if _, err := OpenOltClient.CreateTrafficQueues(context.Background(), queue); err != nil {
+			time.Sleep(50 * time.Millisecond)
+			continue
+		} else {
+			log.Infow("succeeded in retry iteration=%d!!", log.Fields{"i": i})
+			return nil
+		}
+	}
+
+	return errors.New("failed-to-create-traffic-queue-after-all-retries")
+}
+
+func AddFlowWithRetry(OpenOltClient oop.OpenoltClient, flow *oop.Flow) error {
+
+	var err error
+	maxRetry := 20
+
+	_, err = OpenOltClient.FlowAdd(context.Background(), flow)
+
+	st, _ := status.FromError(err)
+	if st.Code() == codes.AlreadyExists {
+		log.Debugw("Flow already exists", log.Fields{"err": err, "deviceFlow": flow})
+		return nil
+	}
+	if st.Code() == codes.ResourceExhausted {
+		for i := 0; i < maxRetry; i++ {
+			_, err = OpenOltClient.FlowAdd(context.Background(), flow)
+			st, _ := status.FromError(err)
+			if st.Code() == codes.ResourceExhausted {
+				log.Error("flow-install-failed--retrying")
+				continue
+			} else if st.Code() == codes.OK {
+				log.Infow("flow-install-succeeded-on-retry", log.Fields{"i": i, "flow": flow})
+				return nil
+			}
+		}
+
+	}
+
+	log.Debugw("Flow install failed on all retries ", log.Fields{"flow": flow})
+
+	return err
 }

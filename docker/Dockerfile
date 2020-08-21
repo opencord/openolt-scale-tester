@@ -18,16 +18,16 @@
 FROM golang:1.12-alpine3.9 AS build-env
 
 # Install required packages
-RUN apk add --no-cache wget git make build-base protobuf protobuf-dev
+RUN apk add --no-cache build-base=0.5-r1
 
 # Prepare directory structure
-WORKDIR /go/src
+WORKDIR /go/src/github.com/opencord/openolt-scale-tester
 COPY . .
 
 # Build openolt
 SHELL ["/bin/ash", "-o", "pipefail", "-c"]
 ENV GO111MODULE=on
-RUN  go mod vendor && go build -mod=vendor -o /go/bin/openolt-scale-tester
+RUN  go build -mod=vendor -o /go/bin/openolt-scale-tester
 
 # -------------
 # Image creation stage
@@ -39,4 +39,4 @@ WORKDIR /app
 
 # Copy required files
 COPY --from=build-env /go/bin/openolt-scale-tester /app/
-COPY --from=build-env /go/src/tech-profiles /app/
+COPY --from=build-env /go/src/github.com/opencord/openolt-scale-tester/tech-profiles /app/

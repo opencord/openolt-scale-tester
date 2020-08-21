@@ -44,7 +44,6 @@ import (
 const (
 	ReasonOk          = "OK"
 	TechProfileKVPath = "service/voltha/technology_profiles/%s/%d" // service/voltha/technology_profiles/xgspon/<tech_profile_tableID>
-	DTWorkFlow        = "DT"
 )
 
 type OnuDeviceKey struct {
@@ -62,6 +61,7 @@ type OpenOltManager struct {
 	testConfig    *config.OpenOltScaleTesterConfig
 	rsrMgr        *OpenOltResourceMgr
 	lockRsrAlloc  sync.RWMutex
+	lockOpenOltManager sync.RWMutex
 }
 
 func init() {
@@ -74,6 +74,7 @@ func NewOpenOltManager(ipPort string) *OpenOltManager {
 		ipPort:       ipPort,
 		OnuDeviceMap: make(map[OnuDeviceKey]*OnuDevice),
 		lockRsrAlloc: sync.RWMutex{},
+		lockOpenOltManager: sync.RWMutex{},
 	}
 }
 
@@ -208,43 +209,76 @@ func (om *OpenOltManager) populateDeviceInfo() (*oop.DeviceInfo, error) {
 
 func (om *OpenOltManager) provisionONUs() {
 	var numOfONUsPerPon uint
-	var i, j, onuID uint32
+	var i, j, k, onuID uint32
 	var err error
-	oltChan := make(chan bool)
-	numOfONUsPerPon = om.testConfig.NumOfOnu / uint(om.deviceInfo.PonPorts)
-	if oddONUs := om.testConfig.NumOfOnu % uint(om.deviceInfo.PonPorts); oddONUs > 0 {
-		log.Warnw("Odd number ONUs left out of provisioning", log.Fields{"oddONUs": oddONUs})
+	var onuWg sync.WaitGroup
+
+	defer func() {
+		// Stop the process once the job is done
+		_ = syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+	}()
+
+	// If the number of ONUs to provision is not a power of 2, stop execution
+	// This is needed for ensure even distribution of ONUs across all PONs
+	if !isPowerOfTwo(om.testConfig.NumOfOnu) {
+		log.Errorw("num-of-onus-to-provision-is-not-a-power-of-2", log.Fields{"numOfOnus": om.testConfig.NumOfOnu})
+		return
 	}
+
+	// Number of ONUs to provision should not be less than the number of PON ports.
+	// We need at least one ONU per PON
+	if om.testConfig.NumOfOnu < uint(om.deviceInfo.PonPorts) {
+		log.Errorw("num-of-onu-is-less-than-num-of-pon-port", log.Fields{"numOfOnus":om.testConfig.NumOfOnu, "numOfPon": om.deviceInfo.PonPorts})
+		return
+	}
+
+	numOfONUsPerPon = om.testConfig.NumOfOnu / uint(om.deviceInfo.PonPorts)
 	totalOnusToProvision := numOfONUsPerPon * uint(om.deviceInfo.PonPorts)
 	log.Infow("***** all-onu-provision-started ******",
 		log.Fields{"totalNumOnus": totalOnusToProvision,
 			"numOfOnusPerPon": numOfONUsPerPon,
 			"numOfPons":       om.deviceInfo.PonPorts})
-	for i = 0; i < om.deviceInfo.PonPorts; i++ {
-		for j = 0; j < uint32(numOfONUsPerPon); j++ {
-			// TODO: More work with ONU provisioning
-			om.lockRsrAlloc.Lock()
-			sn := GenerateNextONUSerialNumber()
-			om.lockRsrAlloc.Unlock()
-			log.Debugw("provisioning onu", log.Fields{"onuID": j, "ponPort": i, "serialNum": sn})
-			if onuID, err = om.rsrMgr.GetONUID(i); err != nil {
-				log.Errorw("error getting onu id", log.Fields{"err": err})
-				continue
-			}
-			log.Infow("onu-provision-started-from-olt-manager", log.Fields{"onuId": onuID, "ponIntf": i})
-			go om.activateONU(i, onuID, sn, om.stringifySerialNumber(sn), oltChan)
-			// Wait for complete ONU provision to succeed, including provisioning the subscriber
-			<-oltChan
-			log.Infow("onu-provision-completed-from-olt-manager", log.Fields{"onuId": onuID, "ponIntf": i})
 
-			// Sleep for configured time before provisioning next ONU
-			time.Sleep(time.Duration(om.testConfig.TimeIntervalBetweenSubs))
-		}
+	// These are the number of ONUs that will be provisioned per PON port per batch.
+	// Such number of ONUs will be chosen across all PON ports per batch
+	var onusPerIterationPerPonPort uint32 = 4
+
+	// If the total number of ONUs per PON is lesser than the default ONU to provision per pon port per batch
+	// then keep halving the ONU to provision per pon port per batch until we reach an acceptable number
+	// Note: the least possible value for onusPerIterationPerPonPort is 1
+	for uint32(numOfONUsPerPon) < onusPerIterationPerPonPort {
+		onusPerIterationPerPonPort /= 2
 	}
-	log.Info("******** all-onu-provisioning-completed *******")
 
-	// TODO: We need to dump the results at the end. But below json marshall does not work
-	// We will need custom Marshal function.
+	startTime := time.Now()
+	// Start provisioning the ONUs
+	for i = 0; i < uint32(numOfONUsPerPon)/onusPerIterationPerPonPort; i++ {
+		for j = 0; j < om.deviceInfo.PonPorts; j++ {
+			for k = 0; k < onusPerIterationPerPonPort; k++ {
+				om.lockRsrAlloc.Lock()
+				sn := GenerateNextONUSerialNumber()
+				om.lockRsrAlloc.Unlock()
+				log.Debugw("provisioning onu", log.Fields{"onuID": j, "ponPort": i, "serialNum": sn})
+				if onuID, err = om.rsrMgr.GetONUID(j); err != nil {
+					log.Errorw("error getting onu id", log.Fields{"err": err})
+					continue
+				}
+				log.Infow("onu-provision-started-from-olt-manager", log.Fields{"onuId": onuID, "ponIntf": i})
+
+				onuWg.Add(1)
+				go om.activateONU(j, onuID, sn, om.stringifySerialNumber(sn), &onuWg)
+			}
+		}
+		// Wait for the group of ONUs to complete processing before going to next batch of ONUs
+		onuWg.Wait()
+	}
+	endTime := time.Now()
+	log.Info("******** all-onu-provisioning-completed *******")
+	totalTime := endTime.Sub(startTime)
+	out := time.Time{}.Add(totalTime)
+	log.Infof("****** Total Time to provision all the ONUs is => %s", out.Format("15:04:05"))
+
+	// TODO: We need to dump the results at the end. But below json marshall does not work. We will need custom Marshal function.
 	/*
 		e, err := json.Marshal(om)
 		if err != nil {
@@ -253,12 +287,9 @@ func (om *OpenOltManager) provisionONUs() {
 		}
 		fmt.Println(string(e))
 	*/
-
-	// Stop the process once the job is done
-	_ = syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 }
 
-func (om *OpenOltManager) activateONU(intfID uint32, onuID uint32, serialNum *oop.SerialNumber, serialNumber string, oltCh chan bool) {
+func (om *OpenOltManager) activateONU(intfID uint32, onuID uint32, serialNum *oop.SerialNumber, serialNumber string, onuWg *sync.WaitGroup) {
 	log.Debugw("activate-onu", log.Fields{"intfID": intfID, "onuID": onuID, "serialNum": serialNum, "serialNumber": serialNumber})
 	// TODO: need resource manager
 	var pir uint32 = 1000000
@@ -269,6 +300,7 @@ func (om *OpenOltManager) activateONU(intfID uint32, onuID uint32, serialNum *oo
 		openOltClient: om.openOltClient,
 		testConfig:    om.testConfig,
 		rsrMgr:        om.rsrMgr,
+		onuWg:         onuWg,
 	}
 	var err error
 	onuDeviceKey := OnuDeviceKey{onuID: onuID, ponInfID: intfID}
@@ -281,7 +313,6 @@ func (om *OpenOltManager) activateONU(intfID uint32, onuID uint32, serialNum *oo
 		st, _ := status.FromError(err)
 		if st.Code() == codes.AlreadyExists {
 			log.Debug("ONU activation is in progress", log.Fields{"SerialNumber": serialNumber})
-			oltCh <- false
 		} else {
 			nanos = now.UnixNano()
 			milliEnd := nanos / 1000000
@@ -289,7 +320,6 @@ func (om *OpenOltManager) activateONU(intfID uint32, onuID uint32, serialNum *oo
 			onuDevice.OnuProvisionDurationInMs = milliEnd - milliStart
 			log.Errorw("activate-onu-failed", log.Fields{"Onu": Onu, "err ": err})
 			onuDevice.Reason = err.Error()
-			oltCh <- false
 		}
 	} else {
 		nanos = now.UnixNano()
@@ -300,12 +330,16 @@ func (om *OpenOltManager) activateONU(intfID uint32, onuID uint32, serialNum *oo
 		log.Infow("activated-onu", log.Fields{"SerialNumber": serialNumber})
 	}
 
+	om.lockOpenOltManager.Lock()
 	om.OnuDeviceMap[onuDeviceKey] = &onuDevice
+	om.lockOpenOltManager.Unlock()
 
 	// If ONU activation was success provision the ONU
 	if err == nil {
-		// start provisioning the ONU
-		go om.OnuDeviceMap[onuDeviceKey].Start(oltCh)
+		om.lockOpenOltManager.RLock()
+		go om.OnuDeviceMap[onuDeviceKey].Start()
+		om.lockOpenOltManager.RUnlock()
+
 	}
 }
 
@@ -440,4 +474,8 @@ func (om *OpenOltManager) populateTechProfilePerPonPort() error {
 	log.Infow("Populated techprofile for ponports successfully",
 		log.Fields{"numofTech": tpCount, "numPonPorts": om.deviceInfo.GetPonPorts()})
 	return nil
+}
+
+func isPowerOfTwo(numOfOnus uint) bool {
+	return (numOfOnus & (numOfOnus - 1)) == 0
 }

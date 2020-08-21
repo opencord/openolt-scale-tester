@@ -1,5 +1,3 @@
 .idea
 openolt-scale-tester
 tests
-!vendor/modules.txt
-vendor/*

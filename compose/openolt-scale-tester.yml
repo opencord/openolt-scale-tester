@@ -27,7 +27,7 @@ services:
       "--openolt_agent_ip_address=${OPENOLT_AGENT_IP_ADDRESS}",
       "--openolt_agent_port=9191",
       "--openolt_agent_nni_intf_id=0",
-      "--num_of_onu=16",
+      "--num_of_onu=512",
       "--subscribers_per_onu=1",
       "--workflow_name=ATT",
       "--time_interval_between_subs=0",
