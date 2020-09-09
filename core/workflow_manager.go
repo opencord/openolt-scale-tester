@@ -20,13 +20,9 @@ import (
 	"errors"
 
 	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v3/pkg/log"
-	oop "github.com/opencord/voltha-protos/v3/go/openolt"
+	"github.com/opencord/voltha-lib-go/v4/pkg/log"
+	oop "github.com/opencord/voltha-protos/v4/go/openolt"
 )
-
-func init() {
-	_, _ = log.AddPackage(log.JSON, log.DebugLevel, nil)
-}
 
 type WorkFlow interface {
 	ProvisionScheds(subs *Subscriber) error
@@ -107,24 +103,24 @@ func DeployWorkflow(subs *Subscriber, isGroup bool) {
 		}
 	}
 
-	log.Infow("subscriber-provision-completed-from-onu-manager", log.Fields{"subsName": subs.SubscriberName})
+	logger.Infow(nil, "subscriber-provision-completed-from-onu-manager", log.Fields{"subsName": subs.SubscriberName})
 	subs.Reason = ReasonCodeToReasonString(SUBSCRIBER_PROVISION_SUCCESS)
 }
 
 func getWorkFlow(subs *Subscriber) WorkFlow {
 	switch subs.TestConfig.WorkflowName {
 	case "ATT":
-		log.Info("chosen-att-workflow")
+		logger.Info(nil, "chosen-att-workflow")
 		return AttWorkFlow{}
 	case "DT":
-		log.Info("chosen-dt-workflow")
+		logger.Info(nil, "chosen-dt-workflow")
 		return DtWorkFlow{}
 	case "TT":
-		log.Info("chosen-tt-workflow")
+		logger.Info(nil, "chosen-tt-workflow")
 		return TtWorkFlow{}
 	// TODO: Add new workflow here
 	default:
-		log.Errorw("operator-workflow-not-supported-yet", log.Fields{"workflowName": subs.TestConfig.WorkflowName})
+		logger.Errorw(nil, "operator-workflow-not-supported-yet", log.Fields{"workflowName": subs.TestConfig.WorkflowName})
 	}
 	return nil
 }
@@ -135,22 +131,22 @@ func ProvisionNniTrapFlow(oo oop.OpenoltClient, config *config.OpenOltScaleTeste
 	switch config.WorkflowName {
 	case "ATT":
 		if err := ProvisionAttNniTrapFlow(oo, config, rsrMgr); err != nil {
-			log.Error("error-installing-flow", log.Fields{"err": err})
+			logger.Error(nil, "error-installing-flow", log.Fields{"err": err})
 			return err
 		}
 	case "DT":
 		if err := ProvisionDtNniTrapFlow(oo, config, rsrMgr); err != nil {
-			log.Error("error-installing-flow", log.Fields{"err": err})
+			logger.Error(nil, "error-installing-flow", log.Fields{"err": err})
 			return err
 		}
 	case "TT":
 		if err := ProvisionTtNniTrapFlow(oo, config, rsrMgr); err != nil {
-			log.Error("error-installing-flow", log.Fields{"err": err})
+			logger.Error(nil, "error-installing-flow", log.Fields{"err": err})
 			return err
 		}
 	// TODO: Add new items here
 	default:
-		log.Errorw("operator-workflow-not-supported-yet", log.Fields{"workflowName": config.WorkflowName})
+		logger.Errorw(nil, "operator-workflow-not-supported-yet", log.Fields{"workflowName": config.WorkflowName})
 		return errors.New("workflow-not-supported")
 	}
 	return nil

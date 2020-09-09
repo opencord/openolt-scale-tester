@@ -22,13 +22,9 @@ import (
 	"time"
 
 	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v3/pkg/log"
-	oop "github.com/opencord/voltha-protos/v3/go/openolt"
+	"github.com/opencord/voltha-lib-go/v4/pkg/log"
+	oop "github.com/opencord/voltha-protos/v4/go/openolt"
 )
-
-func init() {
-	_, _ = log.AddPackage(log.JSON, log.DebugLevel, nil)
-}
 
 type SubscriberKey struct {
 	SubscriberName string
@@ -53,7 +49,7 @@ func (onu *OnuDevice) Start() {
 	onu.SubscriberMap = make(map[SubscriberKey]*Subscriber)
 	var subs uint
 	var subWg sync.WaitGroup
-	log.Infow("onu-provision-started-from-onu-manager", log.Fields{"onuID": onu.OnuID, "ponIntf": onu.PonIntf})
+	logger.Infow(nil, "onu-provision-started-from-onu-manager", log.Fields{"onuID": onu.OnuID, "ponIntf": onu.PonIntf})
 
 	for subs = 0; subs < onu.testConfig.SubscribersPerOnu; subs++ {
 		subsName := onu.SerialNum + "-" + strconv.Itoa(int(subs))
@@ -74,7 +70,7 @@ func (onu *OnuDevice) Start() {
 		onu.SubscriberMap[subsKey] = &subs
 
 		subWg.Add(1)
-		log.Infow("subscriber-provision-started-from-onu-manager", log.Fields{"subsName": subsName})
+		logger.Infow(nil, "subscriber-provision-started-from-onu-manager", log.Fields{"subsName": subsName})
 		// Start provisioning the subscriber
 		go subs.Start(onu.testConfig.IsGroupTest)
 
@@ -85,5 +81,5 @@ func (onu *OnuDevice) Start() {
 	// Signal that ONU provisioning is complete
 	onu.onuWg.Done()
 
-	log.Infow("onu-provision-completed-from-onu-manager", log.Fields{"onuID": onu.OnuID, "ponIntf": onu.PonIntf})
+	logger.Infow(nil, "onu-provision-completed-from-onu-manager", log.Fields{"onuID": onu.OnuID, "ponIntf": onu.PonIntf})
 }

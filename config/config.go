@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/opencord/voltha-lib-go/v3/pkg/log"
+	"github.com/opencord/voltha-lib-go/v4/pkg/log"
 )
 
 // Open OLT default constants
@@ -58,8 +58,15 @@ type OpenOltScaleTesterConfig struct {
 	IsGroupTest             bool
 }
 
+var logger log.CLogger
+
 func init() {
-	_, _ = log.AddPackage(log.JSON, log.WarnLevel, nil)
+	// Setup this package so that it's log level can be modified at run time
+	var err error
+	logger, err = log.RegisterPackage(log.JSON, log.DebugLevel, log.Fields{})
+	if err != nil {
+		panic(err)
+	}
 }
 
 func GetTpIDList(tpIDsStr string) []int {
@@ -70,7 +77,7 @@ func GetTpIDList(tpIDsStr string) []int {
 			tpIDSlice = append(tpIDSlice, tpID)
 		}
 	}
-	log.Debugw("parsed-tp-id-slice", log.Fields{"tpIDSlice": tpIDSlice})
+	logger.Debugw(nil, "parsed-tp-id-slice", log.Fields{"tpIDSlice": tpIDSlice})
 	return tpIDSlice
 }
 

@@ -21,15 +21,11 @@ import (
 	"sync"
 
 	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v3/pkg/log"
-	"github.com/opencord/voltha-lib-go/v3/pkg/techprofile"
-	oop "github.com/opencord/voltha-protos/v3/go/openolt"
+	"github.com/opencord/voltha-lib-go/v4/pkg/log"
+	"github.com/opencord/voltha-lib-go/v4/pkg/techprofile"
+	oop "github.com/opencord/voltha-protos/v4/go/openolt"
 	"golang.org/x/net/context"
 )
-
-func init() {
-	_, _ = log.AddPackage(log.JSON, log.DebugLevel, nil)
-}
 
 const (
 	SUBSCRIBER_PROVISION_SUCCESS = iota
@@ -41,7 +37,7 @@ const (
 )
 
 const (
-	UniPortName = "pon-{%d}/onu-{%d}/uni-{%d}"
+	UniPortName = "olt-{1}/pon-{%d}/onu-{%d}/uni-{%d}"
 )
 
 var Reason = [...]string{
@@ -92,20 +88,20 @@ type Subscriber struct {
 
 func (subs *Subscriber) Start(isGroup bool) {
 
-	var err error
-
-	log.Infow("workflow-deploy-started-for-subscriber", log.Fields{"subsName": subs.SubscriberName})
+	logger.Infow(nil, "workflow-deploy-started-for-subscriber", log.Fields{"subsName": subs.SubscriberName})
 
 	subs.TpInstance = make(map[int]*techprofile.TechProfile)
 
 	for _, tpID := range subs.TestConfig.TpIDList {
 		uniPortName := fmt.Sprintf(UniPortName, subs.PonIntf, subs.OnuID, subs.UniID)
 		subs.RsrMgr.GemIDAllocIDLock[subs.PonIntf].Lock()
-		subs.TpInstance[tpID], err = subs.RsrMgr.ResourceMgrs[subs.PonIntf].TechProfileMgr.CreateTechProfInstance(context.Background(),
-			uint32(tpID), uniPortName, subs.PonIntf)
+		tpInstInterface, err := subs.RsrMgr.ResourceMgrs[subs.PonIntf].TechProfileMgr.CreateTechProfInstance(context.Background(), uint32(tpID), uniPortName, subs.PonIntf)
+		// TODO: Assumes the techprofile is of type TechProfile (XGPON, GPON). But it could also be EPON TechProfile type. But we do not support that at the moment, so it is OK.
+		subs.TpInstance[tpID] = tpInstInterface.(*techprofile.TechProfile)
+
 		subs.RsrMgr.GemIDAllocIDLock[subs.PonIntf].Unlock()
 		if err != nil {
-			log.Errorw("error-creating-tp-instance-for-subs",
+			logger.Errorw(nil, "error-creating-tp-instance-for-subs",
 				log.Fields{"subsName": subs.SubscriberName, "onuID": subs.OnuID, "tpID": tpID})
 
 			subs.Reason = ReasonCodeToReasonString(TP_INSTANCE_CREATION_FAILED)
@@ -115,5 +111,5 @@ func (subs *Subscriber) Start(isGroup bool) {
 
 	go DeployWorkflow(subs, isGroup)
 
-	log.Infow("workflow-deploy-started-for-subscriber", log.Fields{"subsName": subs.SubscriberName})
+	logger.Infow(nil, "workflow-deploy-started-for-subscriber", log.Fields{"subsName": subs.SubscriberName})
 }

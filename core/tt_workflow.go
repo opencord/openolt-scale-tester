@@ -22,9 +22,9 @@ import (
 	"sync/atomic"
 
 	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v3/pkg/log"
-	oop "github.com/opencord/voltha-protos/v3/go/openolt"
-	tp_pb "github.com/opencord/voltha-protos/v3/go/tech_profile"
+	"github.com/opencord/voltha-lib-go/v4/pkg/log"
+	oop "github.com/opencord/voltha-protos/v4/go/openolt"
+	tp_pb "github.com/opencord/voltha-protos/v4/go/tech_profile"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -32,16 +32,12 @@ import (
 
 var lastPonIntf *uint32 = new(uint32)
 
-func init() {
-	_, _ = log.AddPackage(log.JSON, log.DebugLevel, nil)
-}
-
 // A dummy struct to comply with the WorkFlow interface.
 type TtWorkFlow struct {
 }
 
 func AddTtDhcpIPV4Flow(oo oop.OpenoltClient, config *config.OpenOltScaleTesterConfig, rsrMgr *OpenOltResourceMgr) error {
-	var flowID uint32
+	var flowID uint64
 	var err error
 
 	// Allocating flowID from PON0 pool for an trap-from-nni flow
@@ -63,21 +59,21 @@ func AddTtDhcpIPV4Flow(oo oop.OpenoltClient, config *config.OpenOltScaleTesterCo
 
 	st, _ := status.FromError(err)
 	if st.Code() == codes.AlreadyExists {
-		log.Debugw("Flow already exists", log.Fields{"err": err, "deviceFlow": flow})
+		logger.Debugw(nil, "Flow already exists", log.Fields{"err": err, "deviceFlow": flow})
 		return nil
 	}
 
 	if err != nil {
-		log.Errorw("Failed to Add DHCP IPv4 to device", log.Fields{"err": err, "deviceFlow": flow})
+		logger.Errorw(nil, "Failed to Add DHCP IPv4 to device", log.Fields{"err": err, "deviceFlow": flow})
 		return err
 	}
-	log.Debugw("DHCP IPV4 added to device successfully ", log.Fields{"flow": flow})
+	logger.Debugw(nil, "DHCP IPV4 added to device successfully ", log.Fields{"flow": flow})
 
 	return nil
 }
 
 func AddTtDhcpIPV6Flow(oo oop.OpenoltClient, config *config.OpenOltScaleTesterConfig, rsrMgr *OpenOltResourceMgr) error {
-	log.Info("tt-workflow-does-not-require-dhcp-ipv6-support--nothing-to-do")
+	logger.Info(nil, "tt-workflow-does-not-require-dhcp-ipv6-support--nothing-to-do")
 	return nil
 }
 
@@ -140,13 +136,13 @@ func FormatTtClassfierAction(flowType string, direction string, subs *Subscriber
 			flowClassifier.OVid = 75
 			flowClassifier.PktTagType = SingleTag
 		default:
-			log.Errorw("Unsupported TT flow type", log.Fields{"flowtype": flowType,
+			logger.Errorw(nil, "Unsupported TT flow type", log.Fields{"flowtype": flowType,
 				"direction": direction})
 		}
 	} else if direction == Downstream {
 		switch flowType {
 		case IgmpFlow:
-			log.Errorw("Downstream IGMP flows are not required instead we have "+
+			logger.Errorw(nil, "Downstream IGMP flows are not required instead we have "+
 				"IGMP trap flows already installed", log.Fields{"flowtype": flowType,
 				"direction": direction})
 		case HsiaFlow:
@@ -192,41 +188,46 @@ func FormatTtClassfierAction(flowType string, direction string, subs *Subscriber
 			flowClassifier.DstMac = GenerateMac(true)
 			flowClassifier.PktTagType = DoubleTag
 		default:
-			log.Errorw("Unsupported TT flow type", log.Fields{"flowtype": flowType,
+			logger.Errorw(nil, "Unsupported TT flow type", log.Fields{"flowtype": flowType,
 				"direction": direction})
 		}
 	}
 	return flowClassifier, actionInfo
 }
 
-func AddTtFlow(subs *Subscriber, flowType string, direction string, flowID uint32,
-	allocID uint32, gemID uint32, pcp uint32) error {
-	log.Infow("add-flow", log.Fields{"WorkFlow": subs.TestConfig.WorkflowName, "FlowType": flowType,
+func AddTtFlow(subs *Subscriber, flowType string, direction string, flowID uint64,
+	allocID uint32, gemID uint32, pcp uint32, replicateFlow bool, symmetricFlowID uint64,
+	pbitToGem map[uint32]uint32) error {
+	logger.Infow(nil, "add-flow", log.Fields{"WorkFlow": subs.TestConfig.WorkflowName, "FlowType": flowType,
 		"direction": direction, "flowID": flowID})
 	var err error
 
 	flowClassifier, actionInfo := FormatTtClassfierAction(flowType, direction, subs)
-	// Update the o_pbit for which this flow has to be classified
-	flowClassifier.OPbits = pcp
+	// Update the o_pbit (if valid) for which this flow has to be classified
+	if pcp != 0xff {
+		flowClassifier.OPbits = pcp
+	}
 	flow := oop.Flow{AccessIntfId: int32(subs.PonIntf), OnuId: int32(subs.OnuID),
 		UniId: int32(subs.UniID), FlowId: flowID,
 		FlowType: direction, AllocId: int32(allocID), GemportId: int32(gemID),
 		Classifier: &flowClassifier, Action: &actionInfo,
-		Priority: 1000, PortNo: subs.UniPortNo}
+		Priority: 1000, PortNo: subs.UniPortNo,
+		SymmetricFlowId: symmetricFlowID,
+		ReplicateFlow:   replicateFlow, PbitToGemport: pbitToGem}
 
 	_, err = subs.OpenOltClient.FlowAdd(context.Background(), &flow)
 
 	st, _ := status.FromError(err)
 	if st.Code() == codes.AlreadyExists {
-		log.Debugw("Flow already exists", log.Fields{"err": err, "deviceFlow": flow})
+		logger.Debugw(nil, "Flow already exists", log.Fields{"err": err, "deviceFlow": flow})
 		return nil
 	}
 
 	if err != nil {
-		log.Errorw("Failed to Add flow to device", log.Fields{"err": err, "deviceFlow": flow})
+		logger.Errorw(nil, "Failed to Add flow to device", log.Fields{"err": err, "deviceFlow": flow})
 		return errors.New(ReasonCodeToReasonString(FLOW_ADD_FAILED))
 	}
-	log.Debugw("Flow added to device successfully ", log.Fields{"flow": flow})
+	logger.Debugw(nil, "Flow added to device successfully ", log.Fields{"flow": flow})
 
 	return nil
 }
@@ -234,75 +235,75 @@ func AddTtFlow(subs *Subscriber, flowType string, direction string, flowID uint3
 func (tt TtWorkFlow) ProvisionScheds(subs *Subscriber) error {
 	var trafficSched []*tp_pb.TrafficScheduler
 
-	log.Info("provisioning-scheds")
+	logger.Info(nil, "provisioning-scheds")
 
 	if trafficSched = getTrafficSched(subs, tp_pb.Direction_DOWNSTREAM); trafficSched == nil {
-		log.Error("ds-traffic-sched-is-nil")
+		logger.Error(nil, "ds-traffic-sched-is-nil")
 		return errors.New(ReasonCodeToReasonString(SCHED_CREATION_FAILED))
 	}
 
-	log.Debugw("Sending Traffic scheduler create to device",
+	logger.Debugw(nil, "Sending Traffic scheduler create to device",
 		log.Fields{"Direction": tp_pb.Direction_DOWNSTREAM, "TrafficScheds": trafficSched})
 	if _, err := subs.OpenOltClient.CreateTrafficSchedulers(context.Background(), &tp_pb.TrafficSchedulers{
 		IntfId: subs.PonIntf, OnuId: subs.OnuID,
 		UniId: subs.UniID, PortNo: subs.UniPortNo,
 		TrafficScheds: trafficSched}); err != nil {
-		log.Errorw("Failed to create traffic schedulers", log.Fields{"error": err})
+		logger.Errorw(nil, "Failed to create traffic schedulers", log.Fields{"error": err})
 		return errors.New(ReasonCodeToReasonString(SCHED_CREATION_FAILED))
 	}
 
 	if trafficSched = getTrafficSched(subs, tp_pb.Direction_UPSTREAM); trafficSched == nil {
-		log.Error("us-traffic-sched-is-nil")
+		logger.Error(nil, "us-traffic-sched-is-nil")
 		return errors.New(ReasonCodeToReasonString(SCHED_CREATION_FAILED))
 	}
 
-	log.Debugw("Sending Traffic scheduler create to device",
+	logger.Debugw(nil, "Sending Traffic scheduler create to device",
 		log.Fields{"Direction": tp_pb.Direction_UPSTREAM, "TrafficScheds": trafficSched})
 	if _, err := subs.OpenOltClient.CreateTrafficSchedulers(context.Background(), &tp_pb.TrafficSchedulers{
 		IntfId: subs.PonIntf, OnuId: subs.OnuID,
 		UniId: subs.UniID, PortNo: subs.UniPortNo,
 		TrafficScheds: trafficSched}); err != nil {
-		log.Errorw("Failed to create traffic schedulers", log.Fields{"error": err})
+		logger.Errorw(nil, "Failed to create traffic schedulers", log.Fields{"error": err})
 		return errors.New(ReasonCodeToReasonString(SCHED_CREATION_FAILED))
 	}
 	return nil
 }
 
 func (tt TtWorkFlow) ProvisionQueues(subs *Subscriber) error {
-	log.Info("provisioning-queues")
+	logger.Info(nil, "provisioning-queues")
 
 	var trafficQueues []*tp_pb.TrafficQueue
 	if trafficQueues = getTrafficQueues(subs, tp_pb.Direction_DOWNSTREAM); trafficQueues == nil {
-		log.Error("Failed to create traffic queues")
+		logger.Error(nil, "Failed to create traffic queues")
 		return errors.New(ReasonCodeToReasonString(QUEUE_CREATION_FAILED))
 	}
 
 	// On receiving the CreateTrafficQueues request, the driver should create corresponding
 	// downstream queues.
-	log.Debugw("Sending Traffic Queues create to device",
+	logger.Debugw(nil, "Sending Traffic Queues create to device",
 		log.Fields{"Direction": tp_pb.Direction_DOWNSTREAM, "TrafficQueues": trafficQueues})
 	if _, err := subs.OpenOltClient.CreateTrafficQueues(context.Background(),
 		&tp_pb.TrafficQueues{IntfId: subs.PonIntf, OnuId: subs.OnuID,
 			UniId: subs.UniID, PortNo: subs.UniPortNo,
 			TrafficQueues: trafficQueues}); err != nil {
-		log.Errorw("Failed to create traffic queues in device", log.Fields{"error": err})
+		logger.Errorw(nil, "Failed to create traffic queues in device", log.Fields{"error": err})
 		return errors.New(ReasonCodeToReasonString(QUEUE_CREATION_FAILED))
 	}
 
 	if trafficQueues = getTrafficQueues(subs, tp_pb.Direction_UPSTREAM); trafficQueues == nil {
-		log.Error("Failed to create traffic queues")
+		logger.Error(nil, "Failed to create traffic queues")
 		return errors.New(ReasonCodeToReasonString(QUEUE_CREATION_FAILED))
 	}
 
 	// On receiving the CreateTrafficQueues request, the driver should create corresponding
 	// upstream queues.
-	log.Debugw("Sending Traffic Queues create to device",
+	logger.Debugw(nil, "Sending Traffic Queues create to device",
 		log.Fields{"Direction": tp_pb.Direction_UPSTREAM, "TrafficQueues": trafficQueues})
 	if _, err := subs.OpenOltClient.CreateTrafficQueues(context.Background(),
 		&tp_pb.TrafficQueues{IntfId: subs.PonIntf, OnuId: subs.OnuID,
 			UniId: subs.UniID, PortNo: subs.UniPortNo,
 			TrafficQueues: trafficQueues}); err != nil {
-		log.Errorw("Failed to create traffic queues in device", log.Fields{"error": err})
+		logger.Errorw(nil, "Failed to create traffic queues in device", log.Fields{"error": err})
 		return errors.New(ReasonCodeToReasonString(QUEUE_CREATION_FAILED))
 	}
 
@@ -310,29 +311,31 @@ func (tt TtWorkFlow) ProvisionQueues(subs *Subscriber) error {
 }
 
 func (tt TtWorkFlow) ProvisionEapFlow(subs *Subscriber) error {
-	log.Info("tt-workflow-does-not-support-eap-yet--nothing-to-do")
+	logger.Info(nil, "tt-workflow-does-not-support-eap-yet--nothing-to-do")
 	return nil
 }
 
 func (tt TtWorkFlow) ProvisionDhcpIPV4Flow(subs *Subscriber) error {
-	log.Info("tt-workflow-does-not-require-dhcp-ipv4-yet--nothing-to-do")
+	logger.Info(nil, "tt-workflow-does-not-require-dhcp-ipv4-yet--nothing-to-do")
 	return nil
 }
 
 func (tt TtWorkFlow) ProvisionDhcpIPV6Flow(subs *Subscriber) error {
-	log.Info("tt-workflow-does-not-require-dhcp-ipv6-support--nothing-to-do")
+	logger.Info(nil, "tt-workflow-does-not-require-dhcp-ipv6-support--nothing-to-do")
 	return nil
 }
 
 func (tt TtWorkFlow) ProvisionIgmpFlow(subs *Subscriber) error {
-	log.Info("tt-workflow-does-not-require-igmp-support--nothing-to-do")
+	logger.Info(nil, "tt-workflow-does-not-require-igmp-support--nothing-to-do")
 	return nil
 }
 
 func (tt TtWorkFlow) ProvisionHsiaFlow(subs *Subscriber) error {
-	var err error
-	var flowID uint32
 	var gemPortIDs []uint32
+	var err error
+	var flowIDUs, flowIDDs uint64
+	pbitToGem := make(map[uint32]uint32)
+	var pcp uint32
 
 	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocID
 	for _, gem := range subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList {
@@ -343,37 +346,45 @@ func (tt TtWorkFlow) ProvisionHsiaFlow(subs *Subscriber) error {
 		pBitMap := subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList[idx].PbitMap
 		for pos, pbitSet := range strings.TrimPrefix(pBitMap, "0b") {
 			if pbitSet == '1' {
-				pcp := uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
-				if flowID, err = subs.RsrMgr.GetFlowID(context.Background(), uint32(subs.PonIntf)); err != nil {
+				pcp = uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
+				var errUs, errDs error
+				if flowIDUs, err = subs.RsrMgr.GetFlowID(context.Background(), subs.PonIntf); err != nil {
 					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
-				} else {
-					var errUs, errDs error
-					if errUs = AddTtFlow(subs, HsiaFlow, Upstream, flowID, allocID, gemID, pcp); errUs != nil {
-						log.Errorw("failed to install US HSIA flow",
-							log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
-					}
-					if errDs = AddTtFlow(subs, HsiaFlow, Downstream, flowID, allocID, gemID, pcp); errDs != nil {
-						log.Errorw("failed to install DS HSIA flow",
-							log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
-					}
+				}
+				if errUs = AddTtFlow(subs, HsiaFlow, Upstream, flowIDUs, allocID, gemID, pcp, false,
+					0, pbitToGem); errUs != nil {
+					logger.Errorw(nil, "failed to install US HSIA flow",
+						log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
+				}
+				if flowIDDs, err = subs.RsrMgr.GetFlowID(context.Background(), subs.PonIntf); err != nil {
+					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
+				}
+				if errDs = AddTtFlow(subs, HsiaFlow, Downstream, flowIDDs, allocID, gemID, pcp, false,
+					flowIDUs, pbitToGem); errDs != nil {
+					logger.Errorw(nil, "failed to install DS HSIA flow",
+						log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
+				}
 
-					if errUs != nil || errDs != nil {
-						if errUs != nil {
-							return errUs
-						}
-						return errDs
+				if errUs != nil || errDs != nil {
+					if errUs != nil {
+						return errUs
 					}
+					return errDs
 				}
 			}
 		}
 	}
+
 	return nil
 }
 
 func (tt TtWorkFlow) ProvisionVoipFlow(subs *Subscriber) error {
 	var err error
-	var flowID uint32
 	var gemPortIDs []uint32
+	var errUs, errDs, errDhcp error
+	var flowIDUs, flowIDDs, flowIDDhcp uint64
+	pbitToGem := make(map[uint32]uint32)
+	var pcp uint32
 
 	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocID
 	for _, gem := range subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList {
@@ -384,44 +395,55 @@ func (tt TtWorkFlow) ProvisionVoipFlow(subs *Subscriber) error {
 		pBitMap := subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList[idx].PbitMap
 		for pos, pbitSet := range strings.TrimPrefix(pBitMap, "0b") {
 			if pbitSet == '1' {
-				pcp := uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
-				if flowID, err = subs.RsrMgr.GetFlowID(context.Background(), uint32(subs.PonIntf)); err != nil {
+				pcp = uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
+				if flowIDUs, err = subs.RsrMgr.GetFlowID(context.Background(), subs.PonIntf); err != nil {
 					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
-				} else {
-					var errUs, errDs, errDhcp error
-					if errUs = AddTtFlow(subs, VoipFlow, Upstream, flowID, allocID, gemID, pcp); errUs != nil {
-						log.Errorw("failed to install US VOIP flow",
-							log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
-					}
-					if errDs = AddTtFlow(subs, VoipFlow, Downstream, flowID, allocID, gemID, pcp); errDs != nil {
-						log.Errorw("failed to install DS VOIP flow",
-							log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
-					}
-					if errDhcp = AddFlow(subs, DhcpFlowIPV4, Upstream, flowID, allocID, gemID, pcp); errDhcp != nil {
-						log.Errorw("failed to install US VOIP-DHCP flow",
-							log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
-					}
+				}
+				if errUs = AddTtFlow(subs, VoipFlow, Upstream, flowIDUs, allocID, gemID, pcp, false,
+					0, pbitToGem); errUs != nil {
+					logger.Errorw(nil, "failed to install US VOIP flow",
+						log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
+				}
+				if flowIDDs, err = subs.RsrMgr.GetFlowID(context.Background(), subs.PonIntf); err != nil {
+					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
+				}
+				if errDs = AddTtFlow(subs, VoipFlow, Downstream, flowIDDs, allocID, gemID, pcp, false,
+					flowIDUs, pbitToGem); errDs != nil {
+					logger.Errorw(nil, "failed to install DS VOIP flow",
+						log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
+				}
+				if flowIDDhcp, err = subs.RsrMgr.GetFlowID(context.Background(), subs.PonIntf); err != nil {
+					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
+				}
+				if errDhcp = AddFlow(subs, DhcpFlowIPV4, Upstream, flowIDDhcp, allocID, gemID, pcp, false,
+					0, pbitToGem); errDhcp != nil {
+					logger.Errorw(nil, "failed to install US VOIP-DHCP flow",
+						log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
+				}
 
-					if errUs != nil || errDs != nil || errDhcp != nil {
-						if errUs != nil {
-							return errUs
-						}
-						if errDs != nil {
-							return errDs
-						}
-						return errDhcp
+				if errUs != nil || errDs != nil || errDhcp != nil {
+					if errUs != nil {
+						return errUs
 					}
+					if errDs != nil {
+						return errDs
+					}
+					return errDhcp
 				}
 			}
 		}
 	}
+
 	return nil
 }
 
 func (tt TtWorkFlow) ProvisionVodFlow(subs *Subscriber) error {
 	var err error
-	var flowID uint32
 	var gemPortIDs []uint32
+	var errUs, errDs, errDhcp, errIgmp error
+	var flowIDUs, flowIDDs, flowIDDhcp, flowIDIgmp uint64
+	pbitToGem := make(map[uint32]uint32)
+	var pcp uint32
 
 	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocID
 	for _, gem := range subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList {
@@ -432,40 +454,51 @@ func (tt TtWorkFlow) ProvisionVodFlow(subs *Subscriber) error {
 		pBitMap := subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList[idx].PbitMap
 		for pos, pbitSet := range strings.TrimPrefix(pBitMap, "0b") {
 			if pbitSet == '1' {
-				pcp := uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
-				if flowID, err = subs.RsrMgr.GetFlowID(context.Background(), uint32(subs.PonIntf)); err != nil {
+				pcp = uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
+				if flowIDUs, err = subs.RsrMgr.GetFlowID(context.Background(), subs.PonIntf); err != nil {
 					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
-				} else {
-					var errUs, errDs, errDhcp, errIgmp error
-					if errUs = AddTtFlow(subs, VodFlow, Upstream, flowID, allocID, gemID, pcp); errUs != nil {
-						log.Errorw("failed to install US VOIP flow",
-							log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
-					}
-					if errDs = AddTtFlow(subs, VodFlow, Downstream, flowID, allocID, gemID, pcp); errDs != nil {
-						log.Errorw("failed to install DS VOIP flow",
-							log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
-					}
-					if errDhcp = AddFlow(subs, DhcpFlowIPV4, Upstream, flowID, allocID, gemID, pcp); errDhcp != nil {
-						log.Errorw("failed to install US VOIP-DHCP flow",
-							log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
-					}
-					if errIgmp = AddTtFlow(subs, IgmpFlow, Upstream, flowID, allocID, gemID, pcp); errIgmp != nil {
-						log.Errorw("failed to install US VOIP-IGMP flow",
-							log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
-					}
+				}
+				if errUs = AddTtFlow(subs, VodFlow, Upstream, flowIDUs, allocID, gemID, pcp, false,
+					0, pbitToGem); errUs != nil {
+					logger.Errorw(nil, "failed to install US VOIP flow",
+						log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
+				}
+				if flowIDDs, err = subs.RsrMgr.GetFlowID(context.Background(), subs.PonIntf); err != nil {
+					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
+				}
+				if errDs = AddTtFlow(subs, VodFlow, Downstream, flowIDDs, allocID, gemID, pcp, false,
+					flowIDUs, pbitToGem); errDs != nil {
+					logger.Errorw(nil, "failed to install DS VOIP flow",
+						log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
+				}
+				if flowIDDhcp, err = subs.RsrMgr.GetFlowID(context.Background(), subs.PonIntf); err != nil {
+					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
+				}
+				if errDhcp = AddFlow(subs, DhcpFlowIPV4, Upstream, flowIDDhcp, allocID, gemID, pcp, false,
+					0, pbitToGem); errDhcp != nil {
+					logger.Errorw(nil, "failed to install US VOIP-DHCP flow",
+						log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
+				}
+				if flowIDIgmp, err = subs.RsrMgr.GetFlowID(context.Background(), subs.PonIntf); err != nil {
+					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
+				}
+				if errIgmp = AddTtFlow(subs, IgmpFlow, Upstream, flowIDIgmp, allocID, gemID, pcp, false,
+					0, pbitToGem); errIgmp != nil {
+					logger.Errorw(nil, "failed to install US VOIP-IGMP flow",
+						log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
+				}
 
-					if errUs != nil || errDs != nil || errDhcp != nil || errIgmp != nil {
-						if errUs != nil {
-							return errUs
-						}
-						if errDs != nil {
-							return errDs
-						}
-						if errDhcp != nil {
-							return errDhcp
-						}
-						return errIgmp
+				if errUs != nil || errDs != nil || errDhcp != nil || errIgmp != nil {
+					if errUs != nil {
+						return errUs
 					}
+					if errDs != nil {
+						return errDs
+					}
+					if errDhcp != nil {
+						return errDhcp
+					}
+					return errIgmp
 				}
 			}
 		}
@@ -475,8 +508,10 @@ func (tt TtWorkFlow) ProvisionVodFlow(subs *Subscriber) error {
 
 func (tt TtWorkFlow) ProvisionMgmtFlow(subs *Subscriber) error {
 	var err error
-	var flowID uint32
+	pbitToGem := make(map[uint32]uint32)
+	var flowIDUs, flowIDDs, flowIDDhcp uint64
 	var gemPortIDs []uint32
+	var pcp uint32
 
 	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocID
 	for _, gem := range subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList {
@@ -487,33 +522,41 @@ func (tt TtWorkFlow) ProvisionMgmtFlow(subs *Subscriber) error {
 		pBitMap := subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList[idx].PbitMap
 		for pos, pbitSet := range strings.TrimPrefix(pBitMap, "0b") {
 			if pbitSet == '1' {
-				pcp := uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
-				if flowID, err = subs.RsrMgr.GetFlowID(context.Background(), uint32(subs.PonIntf)); err != nil {
+				pcp = uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
+				var errUs, errDs, errDhcp error
+				if flowIDUs, err = subs.RsrMgr.GetFlowID(context.Background(), subs.PonIntf); err != nil {
 					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
-				} else {
-					var errUs, errDs, errDhcp error
-					if errUs = AddTtFlow(subs, MgmtFlow, Upstream, flowID, allocID, gemID, pcp); errUs != nil {
-						log.Errorw("failed to install US MGMT flow",
-							log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
-					}
-					if errDs = AddTtFlow(subs, MgmtFlow, Downstream, flowID, allocID, gemID, pcp); errDs != nil {
-						log.Errorw("failed to install DS MGMT flow",
-							log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
-					}
-					if errDhcp = AddFlow(subs, DhcpFlowIPV4, Upstream, flowID, allocID, gemID, pcp); errDhcp != nil {
-						log.Errorw("failed to install US MGMT-DHCP flow",
-							log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
-					}
+				}
+				if errUs = AddTtFlow(subs, MgmtFlow, Upstream, flowIDUs, allocID, gemID, pcp, false,
+					0, pbitToGem); errUs != nil {
+					logger.Errorw(nil, "failed to install US MGMT flow",
+						log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
+				}
+				if flowIDDs, err = subs.RsrMgr.GetFlowID(context.Background(), subs.PonIntf); err != nil {
+					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
+				}
+				if errDs = AddTtFlow(subs, MgmtFlow, Downstream, flowIDDs, allocID, gemID, pcp, false,
+					flowIDUs, pbitToGem); errDs != nil {
+					logger.Errorw(nil, "failed to install DS MGMT flow",
+						log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
+				}
+				if flowIDDhcp, err = subs.RsrMgr.GetFlowID(context.Background(), subs.PonIntf); err != nil {
+					return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
+				}
+				if errDhcp = AddFlow(subs, DhcpFlowIPV4, Upstream, flowIDDhcp, allocID, gemID, pcp, false,
+					0, pbitToGem); errDhcp != nil {
+					logger.Errorw(nil, "failed to install US MGMT-DHCP flow",
+						log.Fields{"onuID": subs.OnuID, "uniID": subs.UniID, "intf": subs.PonIntf})
+				}
 
-					if errUs != nil || errDs != nil || errDhcp != nil {
-						if errUs != nil {
-							return errUs
-						}
-						if errDs != nil {
-							return errDs
-						}
-						return errDhcp
+				if errUs != nil || errDs != nil || errDhcp != nil {
+					if errUs != nil {
+						return errUs
 					}
+					if errDs != nil {
+						return errDs
+					}
+					return errDhcp
 				}
 			}
 		}
@@ -536,7 +579,7 @@ func (tt TtWorkFlow) ProvisionMulticastFlow(subs *Subscriber) error {
 	grp.GemPortID = 4069
 	grp.SchedPolicy = tp_pb.SchedulingPolicy_WRR
 
-	log.Debugw("Group data", log.Fields{"OnuID": subs.OnuID, "GroupID": grp.GroupID, "numOfONUsPerPon": numOfONUsPerPon})
+	logger.Debugw(nil, "Group data", log.Fields{"OnuID": subs.OnuID, "GroupID": grp.GroupID, "numOfONUsPerPon": numOfONUsPerPon})
 
 	grp.GroupID = subs.OnuID
 
@@ -562,7 +605,7 @@ func (tt TtWorkFlow) ProvisionMulticastFlow(subs *Subscriber) error {
 	err = AddMulticastQueueFlow(&grp)
 
 	if err != nil {
-		log.Errorw("Failed to add multicast flow", log.Fields{"error": err})
+		logger.Errorw(nil, "Failed to add multicast flow", log.Fields{"error": err})
 	}
 
 	return err

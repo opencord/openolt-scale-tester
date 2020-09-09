@@ -28,11 +28,18 @@ import (
 	"github.com/opencord/openolt-scale-tester/core"
 
 	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v3/pkg/log"
+	"github.com/opencord/voltha-lib-go/v4/pkg/log"
 )
 
+var logger log.CLogger
+
 func init() {
-	_, _ = log.AddPackage(log.JSON, log.DebugLevel, nil)
+	// Setup this package so that it's log level can be modified at run time
+	var err error
+	logger, err = log.RegisterPackage(log.JSON, log.DebugLevel, log.Fields{})
+	if err != nil {
+		panic(err)
+	}
 }
 
 const (
@@ -63,10 +70,10 @@ func waitForExit() int {
 			syscall.SIGINT,
 			syscall.SIGTERM,
 			syscall.SIGQUIT:
-			log.Infow("closing-signal-received", log.Fields{"signal": s})
+			logger.Infow(nil, "closing-signal-received", log.Fields{"signal": s})
 			exitChannel <- 0
 		default:
-			log.Infow("unexpected-signal-received", log.Fields{"signal": s})
+			logger.Infow(nil, "unexpected-signal-received", log.Fields{"signal": s})
 			exitChannel <- 1
 		}
 	}()
@@ -97,23 +104,23 @@ func main() {
 
 	// Setup default logger - applies for packages that do not have specific logger set
 	if _, err := log.SetDefaultLogger(log.JSON, 0, log.Fields{"instanceId": 0}); err != nil {
-		log.With(log.Fields{"error": err}).Fatal("Cannot setup logging")
+		logger.With(log.Fields{"error": err}).Fatal(nil, "Cannot setup logging")
 	}
 
 	// Update all loggers (provisioned via init) with a common field
 	if err := log.UpdateAllLoggers(log.Fields{"instanceId": 0}); err != nil {
-		log.With(log.Fields{"error": err}).Fatal("Cannot setup logging")
+		logger.With(log.Fields{"error": err}).Fatal(nil, "Cannot setup logging")
 	}
 
-	log.SetPackageLogLevel("github.com/opencord/voltha-lib-go/v3/pkg/adapters/common", log.DebugLevel)
+	log.SetPackageLogLevel("github.com/opencord/voltha-lib-go/v4/pkg/adapters/common", log.DebugLevel)
 
-	log.Infow("config", log.Fields{"config": *cf})
+	logger.Infow(nil, "config", log.Fields{"config": *cf})
 
 	go sc.openOltManager.Start(cf)
 
 	code := waitForExit()
-	log.Infow("received-a-closing-signal", log.Fields{"code": code})
+	logger.Infow(nil, "received-a-closing-signal", log.Fields{"code": code})
 
 	elapsed := time.Since(start)
-	log.Infow("run-time", log.Fields{"instanceId": 0, "time": elapsed / time.Second})
+	logger.Infow(nil, "run-time", log.Fields{"instanceId": 0, "time": elapsed / time.Second})
 }

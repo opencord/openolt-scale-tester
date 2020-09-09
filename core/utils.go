@@ -19,8 +19,8 @@ package core
 import (
 	"fmt"
 
-	"github.com/opencord/voltha-lib-go/v3/pkg/log"
-	"github.com/opencord/voltha-protos/v3/go/openolt"
+	"github.com/opencord/voltha-lib-go/v4/pkg/log"
+	"github.com/opencord/voltha-protos/v4/go/openolt"
 )
 
 type DtStagKey struct {
@@ -34,7 +34,6 @@ var AttCtag map[uint32]uint32
 var TtCtag map[uint32]uint32
 
 func init() {
-	_, _ = log.AddPackage(log.JSON, log.DebugLevel, nil)
 	AttCtag = make(map[uint32]uint32)
 	DtCtag = make(map[uint32]uint32)
 	DtStag = make(map[DtStagKey]uint32)
@@ -59,9 +58,9 @@ func GenerateNextONUSerialNumber() *openolt.SerialNumber {
 
 	vendorSpecificId += 1
 	vs := []byte(fmt.Sprint(vendorSpecificId))
-	// log.Infow("vendor-id-and-vendor-specific", log.Fields{"vi":vi, "vs":vs})
+	// logger.Infow(nil, "vendor-id-and-vendor-specific", log.Fields{"vi":vi, "vs":vs})
 	sn := &openolt.SerialNumber{VendorId: vi, VendorSpecific: vs}
-	// log.Infow("serial-num", log.Fields{"sn":sn})
+	// logger.Infow(nil, "serial-num", log.Fields{"sn":sn})
 
 	return sn
 }
@@ -70,7 +69,7 @@ func GenerateNextONUSerialNumber() *openolt.SerialNumber {
 func MkUniPortNum(intfID, onuID, uniID uint32) uint32 {
 	var limit = int(onuID)
 	if limit > MaxOnusPerPon {
-		log.Warn("Warning: exceeded the MAX ONUS per PON")
+		logger.Warn(nil, "Warning: exceeded the MAX ONUS per PON")
 	}
 	return (intfID << (bitsForUniID + bitsForONUID)) | (onuID << bitsForUniID) | uniID
 }
@@ -144,7 +143,7 @@ func GetCtag(workFlowName string, ponIntf uint32) uint32 {
 	case "TT":
 		return GetTtCtag(ponIntf)
 	default:
-		log.Errorw("unknown-workflowname", log.Fields{"workflow": workFlowName})
+		logger.Errorw(nil, "unknown-workflowname", log.Fields{"workflow": workFlowName})
 	}
 	return 0
 }
@@ -158,7 +157,7 @@ func GetStag(workFlowName string, ponIntf uint32, onuID uint32, uniID uint32) ui
 	case "TT":
 		return GetTtStag(ponIntf)
 	default:
-		log.Errorw("unknown-workflowname", log.Fields{"workflow": workFlowName})
+		logger.Errorw(nil, "unknown-workflowname", log.Fields{"workflow": workFlowName})
 	}
 	return 0
 }
