@@ -21,9 +21,9 @@ import (
 	"strings"
 
 	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v4/pkg/log"
-	oop "github.com/opencord/voltha-protos/v4/go/openolt"
-	tp_pb "github.com/opencord/voltha-protos/v4/go/tech_profile"
+	"github.com/opencord/voltha-lib-go/v7/pkg/log"
+	oop "github.com/opencord/voltha-protos/v5/go/openolt"
+	tp_pb "github.com/opencord/voltha-protos/v5/go/tech_profile"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -69,36 +69,40 @@ func AddDhcpIPV4Flow(oo oop.OpenoltClient, config *config.OpenOltScaleTesterConf
 }
 
 func AddDhcpIPV6Flow(oo oop.OpenoltClient, config *config.OpenOltScaleTesterConfig, rsrMgr *OpenOltResourceMgr) error {
-	var flowID uint64
-	var err error
+	// We do not support DHCPv6 at the moment. Uncomment the below code when it is supported in the future
+	/*
+		var flowID uint64
+		var err error
 
-	if flowID, err = rsrMgr.GetFlowID(context.Background(), uint32(config.NniIntfID)); err != nil {
-		return err
-	}
+		if flowID, err = rsrMgr.GetFlowID(context.Background(), uint32(config.NniIntfID)); err != nil {
+			return err
+		}
 
-	// DHCP IPV6
-	flowClassifier := &oop.Classifier{EthType: 34525, IpProto: 17, SrcPort: 546, DstPort: 547, PktTagType: "double_tag"}
-	actionCmd := &oop.ActionCmd{TrapToHost: true}
-	actionInfo := &oop.Action{Cmd: actionCmd}
+		// DHCP IPV6
+		flowClassifier := &oop.Classifier{EthType: 34525, IpProto: 17, SrcPort: 546, DstPort: 547, PktTagType: "double_tag"}
+		actionCmd := &oop.ActionCmd{TrapToHost: true}
+		actionInfo := &oop.Action{Cmd: actionCmd}
 
-	flow := oop.Flow{AccessIntfId: -1, OnuId: -1, UniId: -1, FlowId: flowID,
-		FlowType: "downstream", AllocId: -1, GemportId: -1,
-		Classifier: flowClassifier, Action: actionInfo,
-		Priority: 1000, PortNo: uint32(config.NniIntfID)}
+		flow := oop.Flow{AccessIntfId: -1, OnuId: -1, UniId: -1, FlowId: flowID,
+			FlowType: "downstream", AllocId: -1, GemportId: -1,
+			Classifier: flowClassifier, Action: actionInfo,
+			Priority: 1000, PortNo: uint32(config.NniIntfID)}
 
-	_, err = oo.FlowAdd(context.Background(), &flow)
+		_, err = oo.FlowAdd(context.Background(), &flow)
 
-	st, _ := status.FromError(err)
-	if st.Code() == codes.AlreadyExists {
-		logger.Debugw(nil, "Flow already exists", log.Fields{"err": err, "deviceFlow": flow})
-		return nil
-	}
+		st, _ := status.FromError(err)
+		if st.Code() == codes.AlreadyExists {
+			logger.Debugw(nil, "Flow already exists", log.Fields{"err": err, "deviceFlow": flow})
+			return nil
+		}
 
-	if err != nil {
-		logger.Errorw(nil, "Failed to Add DHCP IPV6 to device", log.Fields{"err": err, "deviceFlow": flow})
-		return err
-	}
-	logger.Debugw(nil, "DHCP IPV6 added to device successfully ", log.Fields{"flow": flow})
+		if err != nil {
+			logger.Errorw(nil, "Failed to Add DHCP IPV6 to device", log.Fields{"err": err, "deviceFlow": flow})
+			return err
+		}
+		logger.Debugw(nil, "DHCP IPV6 added to device successfully ", log.Fields{"flow": flow})
+
+	*/
 
 	return nil
 }
@@ -195,9 +199,9 @@ func (att AttWorkFlow) ProvisionEapFlow(subs *Subscriber) error {
 	var gemPortIDs []uint32
 	pbitToGem := make(map[uint32]uint32)
 
-	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocID
+	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocId
 	for _, gem := range subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList {
-		gemPortIDs = append(gemPortIDs, gem.GemportID)
+		gemPortIDs = append(gemPortIDs, gem.GemportId)
 	}
 
 	for idx, gemID := range gemPortIDs {
@@ -227,9 +231,9 @@ func (att AttWorkFlow) ProvisionDhcpIPV4Flow(subs *Subscriber) error {
 	var gemPortIDs []uint32
 	pbitToGem := make(map[uint32]uint32)
 
-	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocID
+	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocId
 	for _, gem := range subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList {
-		gemPortIDs = append(gemPortIDs, gem.GemportID)
+		gemPortIDs = append(gemPortIDs, gem.GemportId)
 	}
 
 	for idx, gemID := range gemPortIDs {
@@ -254,34 +258,38 @@ func (att AttWorkFlow) ProvisionDhcpIPV4Flow(subs *Subscriber) error {
 }
 
 func (att AttWorkFlow) ProvisionDhcpIPV6Flow(subs *Subscriber) error {
-	var err error
-	var flowID uint64
-	var gemPortIDs []uint32
-	pbitToGem := make(map[uint32]uint32)
+	// We do not support DHCPv6 at the moment. Uncomment the below code when it is supported in the future
+	/*
+		var err error
+		var flowID uint64
+		var gemPortIDs []uint32
+		pbitToGem := make(map[uint32]uint32)
 
-	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocID
-	for _, gem := range subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList {
-		gemPortIDs = append(gemPortIDs, gem.GemportID)
-	}
+		var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocId
+		for _, gem := range subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList {
+			gemPortIDs = append(gemPortIDs, gem.GemportId)
+		}
 
-	for idx, gemID := range gemPortIDs {
-		pBitMap := subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList[idx].PbitMap
-		for pos, pbitSet := range strings.TrimPrefix(pBitMap, "0b") {
-			if pbitSet == '1' {
-				pcp := uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
-				pbitToGem[pcp] = gemID
+		for idx, gemID := range gemPortIDs {
+			pBitMap := subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList[idx].PbitMap
+			for pos, pbitSet := range strings.TrimPrefix(pBitMap, "0b") {
+				if pbitSet == '1' {
+					pcp := uint32(len(strings.TrimPrefix(pBitMap, "0b"))) - 1 - uint32(pos)
+					pbitToGem[pcp] = gemID
+				}
 			}
 		}
-	}
 
-	// This flowID is not the BAL flow ID now, it is the voltha-flow-id
-	if flowID, err = subs.RsrMgr.GetFlowID(context.Background(), uint32(subs.PonIntf)); err != nil {
-		return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
-	}
-	if err := AddFlow(subs, DhcpFlowIPV6, Upstream, flowID, allocID, 0, 0xff,
-		true, 0, pbitToGem); err != nil {
-		return err
-	}
+		// This flowID is not the BAL flow ID now, it is the voltha-flow-id
+		if flowID, err = subs.RsrMgr.GetFlowID(context.Background(), uint32(subs.PonIntf)); err != nil {
+			return errors.New(ReasonCodeToReasonString(FLOW_ID_GENERATION_FAILED))
+		}
+		if err := AddFlow(subs, DhcpFlowIPV6, Upstream, flowID, allocID, 0, 0xff,
+			true, 0, pbitToGem); err != nil {
+			return err
+		}
+
+	*/
 	return nil
 }
 
@@ -296,9 +304,9 @@ func (att AttWorkFlow) ProvisionHsiaFlow(subs *Subscriber) error {
 	var gemPortIDs []uint32
 	pbitToGem := make(map[uint32]uint32)
 
-	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocID
+	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocId
 	for _, gem := range subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList {
-		gemPortIDs = append(gemPortIDs, gem.GemportID)
+		gemPortIDs = append(gemPortIDs, gem.GemportId)
 	}
 
 	for idx, gemID := range gemPortIDs {

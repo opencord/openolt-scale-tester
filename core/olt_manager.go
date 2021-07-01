@@ -22,8 +22,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/golang/protobuf/jsonpb"
+	ponrmgr "github.com/opencord/voltha-lib-go/v7/pkg/ponresourcemanager"
+	"github.com/opencord/voltha-protos/v5/go/tech_profile"
 	"io"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"sync"
@@ -32,10 +34,9 @@ import (
 
 	"github.com/cenkalti/backoff/v3"
 	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v4/pkg/db/kvstore"
-	"github.com/opencord/voltha-lib-go/v4/pkg/log"
-	"github.com/opencord/voltha-lib-go/v4/pkg/techprofile"
-	oop "github.com/opencord/voltha-protos/v4/go/openolt"
+	"github.com/opencord/voltha-lib-go/v7/pkg/db/kvstore"
+	"github.com/opencord/voltha-lib-go/v7/pkg/log"
+	oop "github.com/opencord/voltha-protos/v5/go/openolt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -55,11 +56,10 @@ type OpenOltManager struct {
 	ipPort             string
 	deviceInfo         *oop.DeviceInfo
 	OnuDeviceMap       map[OnuDeviceKey]*OnuDevice `json:"onuDeviceMap"`
-	TechProfile        map[uint32]*techprofile.TechProfileIf
 	clientConn         *grpc.ClientConn
 	openOltClient      oop.OpenoltClient
 	testConfig         *config.OpenOltScaleTesterConfig
-	rsrMgr             *OpenOltResourceMgr
+	rsrMgr             []*OpenOltResourceMgr
 	lockRsrAlloc       sync.RWMutex
 	lockOpenOltManager sync.RWMutex
 }
@@ -75,7 +75,6 @@ func NewOpenOltManager(ipPort string) *OpenOltManager {
 }
 
 func (om *OpenOltManager) readAndLoadTPsToEtcd() {
-	var byteValue []byte
 	var err error
 	// Verify that etcd is up before starting the application.
 	etcdIpPort := "http://" + om.testConfig.KVStoreHost + ":" + strconv.Itoa(om.testConfig.KVStorePort)
@@ -98,14 +97,17 @@ func (om *OpenOltManager) readAndLoadTPsToEtcd() {
 		}
 		logger.Debugw(nil, "tp-file-opened-successfully", log.Fields{"tpFile": tpFilePath})
 
-		// read our opened json file as a byte array.
-		if byteValue, err = ioutil.ReadAll(jsonFile); err != nil {
-			logger.Fatalw(nil, "could-not-read-tp-file", log.Fields{"err": err, "tpFile": tpFilePath})
-		}
+		/*
+			// read our opened json file as a byte array.
+			if byteValue, err = ioutil.ReadAll(jsonFile); err != nil {
+				logger.Fatalw(nil, "could-not-read-tp-file", log.Fields{"err": err, "tpFile": tpFilePath})
+			}
 
-		var tp techprofile.TechProfile
+		*/
 
-		if err = json.Unmarshal(byteValue, &tp); err != nil {
+		var tp tech_profile.TechProfile
+
+		if err = jsonpb.Unmarshal(jsonFile, &tp); err != nil {
 			logger.Fatalw(nil, "could-not-unmarshal-tp", log.Fields{"err": err, "tpFile": tpFilePath})
 		} else {
 			logger.Infow(nil, "tp-read-from-file", log.Fields{"tp": tp, "tpFile": tpFilePath})
@@ -121,8 +123,8 @@ func (om *OpenOltManager) readAndLoadTPsToEtcd() {
 		if kvResult == nil {
 			logger.Fatal(nil, "tp-not-found-on-kv-after-load", log.Fields{"key": kvPath, "err": err})
 		} else {
-			var KvTpIns techprofile.TechProfile
-			var resPtr = &KvTpIns
+			var KvTp tech_profile.TechProfile
+			var resPtr = &KvTp
 			if value, err := kvstore.ToByte(kvResult.Value); err == nil {
 				if err = json.Unmarshal(value, resPtr); err != nil {
 					logger.Fatal(nil, "error-unmarshal-kv-result", log.Fields{"err": err, "key": kvPath, "value": value})
@@ -157,24 +159,20 @@ func (om *OpenOltManager) Start(testConfig *config.OpenOltScaleTesterConfig) err
 	om.readAndLoadTPsToEtcd()
 
 	logger.Info(nil, "etcd-up-and-running--tp-loaded-successfully")
-
-	if om.rsrMgr = NewResourceMgr("ABCD", om.testConfig.KVStoreHost+":"+strconv.Itoa(om.testConfig.KVStorePort),
-		"etcd", "openolt", om.deviceInfo); om.rsrMgr == nil {
-		logger.Error(nil, "Error while instantiating resource manager")
-		return errors.New("instantiating resource manager failed")
-	}
-
-	om.TechProfile = make(map[uint32]*techprofile.TechProfileIf)
-	if err = om.populateTechProfilePerPonPort(); err != nil {
-		logger.Error(nil, "Error while populating tech profile mgr\n")
-		return errors.New("error-loading-tech-profile-per-ponPort")
+	om.rsrMgr = make([]*OpenOltResourceMgr, om.deviceInfo.PonPorts)
+	for ponIdx := range om.rsrMgr {
+		if om.rsrMgr[ponIdx] = NewResourceMgr("ABCD", om.testConfig.KVStoreHost+":"+strconv.Itoa(om.testConfig.KVStorePort),
+			"etcd", "openolt", uint32(ponIdx), om.deviceInfo); om.rsrMgr == nil {
+			logger.Error(nil, "Error while instantiating resource manager")
+			return errors.New("instantiating resource manager failed")
+		}
 	}
 
 	// Start reading indications
 	go om.readIndications()
 
 	// Provision OLT NNI Trap flows as needed by the Workflow
-	if err = ProvisionNniTrapFlow(om.openOltClient, om.testConfig, om.rsrMgr); err != nil {
+	if err = ProvisionNniTrapFlow(om.openOltClient, om.testConfig, om.rsrMgr[0]); err != nil {
 		logger.Error(nil, "failed-to-add-nni-trap-flow", log.Fields{"err": err})
 	}
 
@@ -205,8 +203,7 @@ func (om *OpenOltManager) populateDeviceInfo() (*oop.DeviceInfo, error) {
 
 func (om *OpenOltManager) provisionONUs() {
 	var numOfONUsPerPon uint
-	var i, j, k, onuID uint32
-	var err error
+	var i, j, k uint32
 	var onuWg sync.WaitGroup
 
 	defer func() {
@@ -255,14 +252,17 @@ func (om *OpenOltManager) provisionONUs() {
 				sn := GenerateNextONUSerialNumber()
 				om.lockRsrAlloc.Unlock()
 				logger.Debugw(nil, "provisioning onu", log.Fields{"onuID": j, "ponPort": i, "serialNum": sn})
-				if onuID, err = om.rsrMgr.GetONUID(j); err != nil {
+				ctx := context.Background()
+				newCtx := context.WithValue(ctx, "ponIf", i)
+				onuIDSl, err := om.rsrMgr[i].TechprofileRef.GetResourceID(newCtx, j, ponrmgr.ONU_ID, 1)
+				if err != nil {
 					logger.Errorw(nil, "error getting onu id", log.Fields{"err": err})
 					continue
 				}
-				logger.Infow(nil, "onu-provision-started-from-olt-manager", log.Fields{"onuId": onuID, "ponIntf": i})
+				logger.Infow(nil, "onu-provision-started-from-olt-manager", log.Fields{"onuId": onuIDSl[0], "ponIntf": i})
 
 				onuWg.Add(1)
-				go om.activateONU(j, onuID, sn, om.stringifySerialNumber(sn), &onuWg)
+				go om.activateONU(j, onuIDSl[0], sn, om.stringifySerialNumber(sn), &onuWg)
 			}
 		}
 		// Wait for the group of ONUs to complete processing before going to next batch of ONUs
@@ -295,7 +295,7 @@ func (om *OpenOltManager) activateONU(intfID uint32, onuID uint32, serialNum *oo
 		PonIntf:       intfID,
 		openOltClient: om.openOltClient,
 		testConfig:    om.testConfig,
-		rsrMgr:        om.rsrMgr,
+		rsrMgr:        om.rsrMgr[intfID],
 		onuWg:         onuWg,
 	}
 	var err error
@@ -450,26 +450,6 @@ func (om *OpenOltManager) handleIndication(indication *oop.Indication) {
 		alarmInd := indication.GetAlarmInd()
 		logger.Infow(nil, "Received alarm indication ", log.Fields{"AlarmInd": alarmInd})
 	}
-}
-
-func (om *OpenOltManager) populateTechProfilePerPonPort() error {
-	var tpCount int
-	for _, techRange := range om.deviceInfo.Ranges {
-		for _, intfID := range techRange.IntfIds {
-			om.TechProfile[intfID] = &(om.rsrMgr.ResourceMgrs[intfID].TechProfileMgr)
-			tpCount++
-			logger.Debugw(nil, "Init tech profile done", log.Fields{"intfID": intfID})
-		}
-	}
-	//Make sure we have as many tech_profiles as there are pon ports on the device
-	if tpCount != int(om.deviceInfo.GetPonPorts()) {
-		logger.Errorw(nil, "Error while populating techprofile",
-			log.Fields{"numofTech": tpCount, "numPonPorts": om.deviceInfo.GetPonPorts()})
-		return errors.New("error while populating techprofile mgrs")
-	}
-	logger.Infow(nil, "Populated techprofile for ponports successfully",
-		log.Fields{"numofTech": tpCount, "numPonPorts": om.deviceInfo.GetPonPorts()})
-	return nil
 }
 
 func isPowerOfTwo(numOfOnus uint) bool {

@@ -28,7 +28,7 @@ import (
 	"github.com/opencord/openolt-scale-tester/core"
 
 	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v4/pkg/log"
+	"github.com/opencord/voltha-lib-go/v7/pkg/log"
 )
 
 var logger log.CLogger
@@ -112,7 +112,7 @@ func main() {
 		logger.With(log.Fields{"error": err}).Fatal(nil, "Cannot setup logging")
 	}
 
-	log.SetPackageLogLevel("github.com/opencord/voltha-lib-go/v4/pkg/adapters/common", log.DebugLevel)
+	log.SetPackageLogLevel("github.com/opencord/voltha-lib-go/v7/pkg/adapters/common", log.DebugLevel)
 
 	logger.Infow(nil, "config", log.Fields{"config": *cf})
 

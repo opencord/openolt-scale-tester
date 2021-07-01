@@ -15,10 +15,10 @@
 # -------------
 # Build stage
 
-FROM golang:1.12-alpine3.9 AS build-env
+FROM golang:1.16.3-alpine3.13 AS build-env
 
 # Install required packages
-RUN apk add --no-cache build-base=0.5-r1
+RUN apk add --no-cache build-base=0.5-r2
 
 # Prepare directory structure
 WORKDIR /go/src/github.com/opencord/openolt-scale-tester
@@ -32,7 +32,7 @@ RUN  go build -mod=vendor -o /go/bin/openolt-scale-tester
 # -------------
 # Image creation stage
 
-FROM alpine:3.9.4
+FROM alpine:3.13.6
 
 # Set the working directory
 WORKDIR /app

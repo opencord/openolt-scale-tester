@@ -21,9 +21,9 @@ import (
 	"strings"
 
 	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v4/pkg/log"
-	oop "github.com/opencord/voltha-protos/v4/go/openolt"
-	tp_pb "github.com/opencord/voltha-protos/v4/go/tech_profile"
+	"github.com/opencord/voltha-lib-go/v7/pkg/log"
+	oop "github.com/opencord/voltha-protos/v5/go/openolt"
+	tp_pb "github.com/opencord/voltha-protos/v5/go/tech_profile"
 	"golang.org/x/net/context"
 )
 
@@ -142,9 +142,9 @@ func (dt DtWorkFlow) ProvisionHsiaFlow(subs *Subscriber) error {
 	var gemPortIDs []uint32
 	pbitToGem := make(map[uint32]uint32)
 
-	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocID
+	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocId
 	for _, gem := range subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList {
-		gemPortIDs = append(gemPortIDs, gem.GemportID)
+		gemPortIDs = append(gemPortIDs, gem.GemportId)
 	}
 
 	for idx, gemID := range gemPortIDs {

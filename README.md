@@ -16,6 +16,9 @@ Make sure openolt-agent and dev_mgmt_daemon are running. Then run the below comm
 DOCKER_HOST_IP=<your-host-ip-here> OPENOLT_AGENT_IP_ADDRESS=<olt-ip-address-here> TAG=<docker-tag-here> docker-compose -f compose/openolt-scale-tester.yml up -d
 ```
 
+# openolt-agent settings for testing scale
+Compile openolt-agent application with `FLOW_CHECKER` compile time flag disabled and `SCALE_AND_PERF` flag enabled in  `CPPFLAGS` under `agent/Makefile.in`
+
 # How to add new workflows
 Lets say your workflow name is XYZ, and the techprofile IDs needed by your workflow is 64 (there could be more than one techprofiles too). Create `XYZ-64.json` file with your techprofile in `tech_profiles` folder.
 Edit the `compose/openolt-scale-tester.yml` file to reflect your workflow name, i.e., `XYZ` for parameter `--workflow_name`.

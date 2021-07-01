@@ -18,12 +18,12 @@ package core
 
 import (
 	"fmt"
+	"github.com/opencord/voltha-protos/v5/go/tech_profile"
 	"sync"
 
 	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v4/pkg/log"
-	"github.com/opencord/voltha-lib-go/v4/pkg/techprofile"
-	oop "github.com/opencord/voltha-protos/v4/go/openolt"
+	"github.com/opencord/voltha-lib-go/v7/pkg/log"
+	oop "github.com/opencord/voltha-protos/v5/go/openolt"
 	"golang.org/x/net/context"
 )
 
@@ -79,7 +79,7 @@ type Subscriber struct {
 	FailedScheds []oop.TrafficScheduler `json:"failedScheds"`
 	FailedQueues []oop.TrafficQueue     `json:"failedQueues"`
 
-	TpInstance    map[int]*techprofile.TechProfile
+	TpInstance    map[int]*tech_profile.TechProfileInstance
 	OpenOltClient oop.OpenoltClient
 	TestConfig    *config.OpenOltScaleTesterConfig
 	RsrMgr        *OpenOltResourceMgr
@@ -90,16 +90,14 @@ func (subs *Subscriber) Start(isGroup bool) {
 
 	logger.Infow(nil, "workflow-deploy-started-for-subscriber", log.Fields{"subsName": subs.SubscriberName})
 
-	subs.TpInstance = make(map[int]*techprofile.TechProfile)
+	subs.TpInstance = make(map[int]*tech_profile.TechProfileInstance)
 
 	for _, tpID := range subs.TestConfig.TpIDList {
 		uniPortName := fmt.Sprintf(UniPortName, subs.PonIntf, subs.OnuID, subs.UniID)
-		subs.RsrMgr.GemIDAllocIDLock[subs.PonIntf].Lock()
-		tpInstInterface, err := subs.RsrMgr.ResourceMgrs[subs.PonIntf].TechProfileMgr.CreateTechProfInstance(context.Background(), uint32(tpID), uniPortName, subs.PonIntf)
+		tpInstInterface, err := subs.RsrMgr.TechprofileRef.CreateTechProfileInstance(context.Background(), uint32(tpID), uniPortName, subs.PonIntf)
 		// TODO: Assumes the techprofile is of type TechProfile (XGPON, GPON). But it could also be EPON TechProfile type. But we do not support that at the moment, so it is OK.
-		subs.TpInstance[tpID] = tpInstInterface.(*techprofile.TechProfile)
+		subs.TpInstance[tpID] = tpInstInterface.(*tech_profile.TechProfileInstance)
 
-		subs.RsrMgr.GemIDAllocIDLock[subs.PonIntf].Unlock()
 		if err != nil {
 			logger.Errorw(nil, "error-creating-tp-instance-for-subs",
 				log.Fields{"subsName": subs.SubscriberName, "onuID": subs.OnuID, "tpID": tpID})

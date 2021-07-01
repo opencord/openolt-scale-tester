@@ -22,9 +22,9 @@ import (
 	"time"
 
 	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v4/pkg/log"
-	oop "github.com/opencord/voltha-protos/v4/go/openolt"
-	tp_pb "github.com/opencord/voltha-protos/v4/go/tech_profile"
+	"github.com/opencord/voltha-lib-go/v7/pkg/log"
+	oop "github.com/opencord/voltha-protos/v5/go/openolt"
+	tp_pb "github.com/opencord/voltha-protos/v5/go/tech_profile"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -97,18 +97,17 @@ type GroupData struct {
 
 func getTrafficSched(subs *Subscriber, direction tp_pb.Direction) []*tp_pb.TrafficScheduler {
 	var SchedCfg *tp_pb.SchedulerConfig
-	var err error
 
 	if direction == tp_pb.Direction_DOWNSTREAM {
-		SchedCfg, err = subs.RsrMgr.ResourceMgrs[subs.PonIntf].TechProfileMgr.
-			GetDsScheduler(nil, subs.TpInstance[subs.TestConfig.TpIDList[0]])
+		SchedCfg = subs.RsrMgr.TechprofileRef.
+			GetDsScheduler(subs.TpInstance[subs.TestConfig.TpIDList[0]])
 	} else {
-		SchedCfg, err = subs.RsrMgr.ResourceMgrs[subs.PonIntf].TechProfileMgr.
-			GetUsScheduler(nil, subs.TpInstance[subs.TestConfig.TpIDList[0]])
+		SchedCfg = subs.RsrMgr.TechprofileRef.
+			GetUsScheduler(subs.TpInstance[subs.TestConfig.TpIDList[0]])
 	}
 
-	if err != nil {
-		logger.Errorw(nil, "Failed to create traffic schedulers", log.Fields{"direction": direction, "error": err})
+	if SchedCfg == nil {
+		logger.Errorw(nil, "Failed to create traffic schedulers", log.Fields{"direction": direction})
 		return nil
 	}
 
@@ -122,7 +121,7 @@ func getTrafficSched(subs *Subscriber, direction tp_pb.Direction) []*tp_pb.Traff
 
 	TrafficShaping := &tp_pb.TrafficShapingInfo{Cir: uint32(cir), Cbs: uint32(cbs), Pir: uint32(pir), Pbs: uint32(pbs)}
 
-	TrafficSched := []*tp_pb.TrafficScheduler{subs.RsrMgr.ResourceMgrs[subs.PonIntf].TechProfileMgr.
+	TrafficSched := []*tp_pb.TrafficScheduler{subs.RsrMgr.TechprofileRef.
 		GetTrafficScheduler(subs.TpInstance[subs.TestConfig.TpIDList[0]], SchedCfg, TrafficShaping)}
 
 	return TrafficSched
@@ -130,7 +129,7 @@ func getTrafficSched(subs *Subscriber, direction tp_pb.Direction) []*tp_pb.Traff
 
 func getTrafficQueues(subs *Subscriber, direction tp_pb.Direction) []*tp_pb.TrafficQueue {
 
-	trafficQueues, err := subs.RsrMgr.ResourceMgrs[subs.PonIntf].TechProfileMgr.
+	trafficQueues, err := subs.RsrMgr.TechprofileRef.
 		GetTrafficQueues(nil, subs.TpInstance[subs.TestConfig.TpIDList[0]], direction)
 
 	if err == nil {
@@ -441,7 +440,7 @@ func AddMulticastSched(grp *GroupData) error {
 
 	TfShInfo := &tp_pb.TrafficShapingInfo{Cir: uint32(cir), Cbs: uint32(cbs), Pir: uint32(pir), Pbs: uint32(pbs)}
 
-	TrafficSched := []*tp_pb.TrafficScheduler{grp.Subs.RsrMgr.ResourceMgrs[grp.Subs.PonIntf].TechProfileMgr.
+	TrafficSched := []*tp_pb.TrafficScheduler{grp.Subs.RsrMgr.TechprofileRef.
 		GetTrafficScheduler(grp.Subs.TpInstance[grp.Subs.TestConfig.TpIDList[0]], SchedCfg, TfShInfo)}
 
 	if TrafficSched == nil {

@@ -20,8 +20,8 @@ import (
 	"errors"
 
 	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v4/pkg/log"
-	oop "github.com/opencord/voltha-protos/v4/go/openolt"
+	"github.com/opencord/voltha-lib-go/v7/pkg/log"
+	oop "github.com/opencord/voltha-protos/v5/go/openolt"
 )
 
 type WorkFlow interface {

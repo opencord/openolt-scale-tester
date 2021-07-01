@@ -18,9 +18,10 @@ package core
 
 import (
 	"fmt"
+	"sync"
 
-	"github.com/opencord/voltha-lib-go/v4/pkg/log"
-	"github.com/opencord/voltha-protos/v4/go/openolt"
+	"github.com/opencord/voltha-lib-go/v7/pkg/log"
+	"github.com/opencord/voltha-protos/v5/go/openolt"
 )
 
 type DtStagKey struct {
@@ -32,6 +33,7 @@ var DtStag map[DtStagKey]uint32
 var DtCtag map[uint32]uint32
 var AttCtag map[uint32]uint32
 var TtCtag map[uint32]uint32
+var mutex sync.RWMutex
 
 func init() {
 	AttCtag = make(map[uint32]uint32)
@@ -77,6 +79,8 @@ func MkUniPortNum(intfID, onuID, uniID uint32) uint32 {
 func GetAttCtag(ponIntf uint32) uint32 {
 	var currCtag uint32
 	var ok bool
+	mutex.Lock()
+	defer mutex.Unlock()
 	if currCtag, ok = AttCtag[ponIntf]; !ok {
 		// Start with ctag 2
 		AttCtag[ponIntf] = 2
@@ -89,6 +93,8 @@ func GetAttCtag(ponIntf uint32) uint32 {
 func GetDtCtag(ponIntf uint32) uint32 {
 	var currCtag uint32
 	var ok bool
+	mutex.Lock()
+	defer mutex.Unlock()
 	if currCtag, ok = DtCtag[ponIntf]; !ok {
 		// Start with ctag 1
 		DtCtag[ponIntf] = 1
@@ -101,6 +107,8 @@ func GetDtCtag(ponIntf uint32) uint32 {
 func GetTtCtag(ponIntf uint32) uint32 {
 	var currCtag uint32
 	var ok bool
+	mutex.Lock()
+	defer mutex.Unlock()
 	if currCtag, ok = TtCtag[ponIntf]; !ok {
 		// Start with ctag 1
 		TtCtag[ponIntf] = 1
@@ -118,7 +126,8 @@ func GetAttStag(ponIntf uint32) uint32 {
 func GetDtStag(ponIntf uint32, onuID uint32, uniID uint32) uint32 {
 	// Dt workflow requires unique stag for each subscriber
 	key := DtStagKey{ponIntf: ponIntf, onuID: onuID, uniID: uniID}
-
+	mutex.Lock()
+	defer mutex.Unlock()
 	if value, ok := DtStag[key]; ok {
 		return value
 	} else {

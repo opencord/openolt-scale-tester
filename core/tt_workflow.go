@@ -22,9 +22,9 @@ import (
 	"sync/atomic"
 
 	"github.com/opencord/openolt-scale-tester/config"
-	"github.com/opencord/voltha-lib-go/v4/pkg/log"
-	oop "github.com/opencord/voltha-protos/v4/go/openolt"
-	tp_pb "github.com/opencord/voltha-protos/v4/go/tech_profile"
+	"github.com/opencord/voltha-lib-go/v7/pkg/log"
+	oop "github.com/opencord/voltha-protos/v5/go/openolt"
+	tp_pb "github.com/opencord/voltha-protos/v5/go/tech_profile"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -198,8 +198,7 @@ func FormatTtClassfierAction(flowType string, direction string, subs *Subscriber
 func AddTtFlow(subs *Subscriber, flowType string, direction string, flowID uint64,
 	allocID uint32, gemID uint32, pcp uint32, replicateFlow bool, symmetricFlowID uint64,
 	pbitToGem map[uint32]uint32) error {
-	logger.Infow(nil, "add-flow", log.Fields{"WorkFlow": subs.TestConfig.WorkflowName, "FlowType": flowType,
-		"direction": direction, "flowID": flowID})
+
 	var err error
 
 	flowClassifier, actionInfo := FormatTtClassfierAction(flowType, direction, subs)
@@ -214,6 +213,8 @@ func AddTtFlow(subs *Subscriber, flowType string, direction string, flowID uint6
 		Priority: 1000, PortNo: subs.UniPortNo,
 		SymmetricFlowId: symmetricFlowID,
 		ReplicateFlow:   replicateFlow, PbitToGemport: pbitToGem}
+
+	logger.Infow(nil, "adding-flow", log.Fields{"flow": flow})
 
 	_, err = subs.OpenOltClient.FlowAdd(context.Background(), &flow)
 
@@ -337,9 +338,9 @@ func (tt TtWorkFlow) ProvisionHsiaFlow(subs *Subscriber) error {
 	pbitToGem := make(map[uint32]uint32)
 	var pcp uint32
 
-	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocID
+	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocId
 	for _, gem := range subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList {
-		gemPortIDs = append(gemPortIDs, gem.GemportID)
+		gemPortIDs = append(gemPortIDs, gem.GemportId)
 	}
 
 	for idx, gemID := range gemPortIDs {
@@ -386,9 +387,9 @@ func (tt TtWorkFlow) ProvisionVoipFlow(subs *Subscriber) error {
 	pbitToGem := make(map[uint32]uint32)
 	var pcp uint32
 
-	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocID
+	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocId
 	for _, gem := range subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList {
-		gemPortIDs = append(gemPortIDs, gem.GemportID)
+		gemPortIDs = append(gemPortIDs, gem.GemportId)
 	}
 
 	for idx, gemID := range gemPortIDs {
@@ -445,9 +446,9 @@ func (tt TtWorkFlow) ProvisionVodFlow(subs *Subscriber) error {
 	pbitToGem := make(map[uint32]uint32)
 	var pcp uint32
 
-	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocID
+	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocId
 	for _, gem := range subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList {
-		gemPortIDs = append(gemPortIDs, gem.GemportID)
+		gemPortIDs = append(gemPortIDs, gem.GemportId)
 	}
 
 	for idx, gemID := range gemPortIDs {
@@ -513,9 +514,9 @@ func (tt TtWorkFlow) ProvisionMgmtFlow(subs *Subscriber) error {
 	var gemPortIDs []uint32
 	var pcp uint32
 
-	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocID
+	var allocID = subs.TpInstance[subs.TestConfig.TpIDList[0]].UsScheduler.AllocId
 	for _, gem := range subs.TpInstance[subs.TestConfig.TpIDList[0]].UpstreamGemPortAttributeList {
-		gemPortIDs = append(gemPortIDs, gem.GemportID)
+		gemPortIDs = append(gemPortIDs, gem.GemportId)
 	}
 
 	for idx, gemID := range gemPortIDs {

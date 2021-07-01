@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/opencord/voltha-lib-go/v4/pkg/log"
+	"github.com/opencord/voltha-lib-go/v7/pkg/log"
 )
 
 // Open OLT default constants
